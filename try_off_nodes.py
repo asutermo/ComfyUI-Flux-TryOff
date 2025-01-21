@@ -87,12 +87,6 @@ class TryOffRunNode:
     FUNCTION = "run_inference"
 
     def run_inference(self, image_in, mask_in, pipe, width, height, num_steps, guidance_scale, seed, prompt, device):
-        # Ensure input images are PIL images
-        if isinstance(image_in, np.ndarray):
-            image_in = Image.fromarray(image_in)
-        if isinstance(mask_in, np.ndarray):
-            mask_in = Image.fromarray(mask_in)
-
         pipe.transformer.to(torch.bfloat16)
 
         # Preprocessing transforms
@@ -121,13 +115,6 @@ class TryOffRunNode:
         inpaint_image = torch.cat([garment_tensor, image_tensor], dim=2)
         garment_mask = torch.zeros_like(mask_tensor)
         extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
-
-        # # Define prompt
-        # prompt = (
-        #     "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; "
-        #     "[IMAGE1] Detailed product shot of clothing "
-        #     "[IMAGE2] The same clothing is worn by a model in a lifestyle setting."
-        # )
 
         # Set random seed for reproducibility
         generator = torch.Generator(device=device).manual_seed(seed)
