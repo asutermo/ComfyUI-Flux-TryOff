@@ -37,12 +37,10 @@ class TryOffModelNode:
 class TryOffFluxFillModelNode:
     @classmethod
     def INPUT_TYPES(cls):
-        checkpoints = folder_paths.get_filename_list("checkpoints")
-
         return {
             "required": {
                 "transformer": ("MODEL",),
-                "model_name": (checkpoints,),
+                "model_name": (["FLUX.1-dev"],),
                 "device": (device_list,),
             }
         }
@@ -52,7 +50,7 @@ class TryOffFluxFillModelNode:
     FUNCTION = "load_pipeline"
 
     def load_pipeline(self, transformer, model_name, device):
-        model_path = folder_paths.get_full_path("checkpoints", model_name)
+        model_path = os.path.join(checkpoints_dir, model_name)
         
         pipeline = FluxFillPipeline.from_pretrained(
             model_path,
