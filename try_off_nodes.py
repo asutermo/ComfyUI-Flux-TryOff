@@ -5,7 +5,7 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 
-device = comfy.model_management.get_torch_device()
+device_list = ['cuda', 'cpu']
 
 # TryOffModel Node
 class TryOffModelNode:
@@ -14,6 +14,7 @@ class TryOffModelNode:
         return {
             "required": {
                 "model_name": (["xiaozaa/cat-tryoff-flux"],),
+                "device": (device_list,),
             }
         }
 
@@ -21,7 +22,7 @@ class TryOffModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_model"
 
-    def load_model(self, model_name):
+    def load_model(self, model_name, device):
         model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=torch.bfloat16).to(device)
         return (model,)
 
@@ -34,6 +35,7 @@ class FluxFillModelNode:
             "required": {
                 "transformer": ("MODEL",),
                 "pipeline_name": (["black-forest-labs/FLUX.1-dev"],),
+                "device": (device_list,),
             }
         }
 
@@ -41,7 +43,7 @@ class FluxFillModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_pipeline"
 
-    def load_pipeline(self, transformer, pipeline_name):
+    def load_pipeline(self, transformer, pipeline_name, device):
         
         pipeline = FluxFillPipeline.from_pretrained(
             pipeline_name,
@@ -69,6 +71,7 @@ class TryOffRunNode:
                         "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; "
                         "[IMAGE1] Detailed product shot of clothing "
                         "[IMAGE2] The same clothing is worn by a model in a lifestyle setting."}),
+                "device": (device_list,),
             }
         }
 
@@ -77,7 +80,7 @@ class TryOffRunNode:
     CATEGORY = "Processing"
     FUNCTION = "run_inference"
 
-    def run_inference(self, image_in, mask_in, pipe, width, height, num_steps, guidance_scale, seed, prompt):
+    def run_inference(self, image_in, mask_in, pipe, width, height, num_steps, guidance_scale, seed, prompt, device):
         # Ensure input images are PIL images
         if isinstance(image_in, np.ndarray):
             image_in = Image.fromarray(image_in)

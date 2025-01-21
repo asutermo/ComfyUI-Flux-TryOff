@@ -1,0 +1,15 @@
+[project]
+name = "ComfyUI_Flux_TryOff"
+description = "Try Off for ComfyUI using Flux and CatVTON."
+version = "1.0.0"
+license = ""
+dependencies = ["numpy", "pillow", "diffusers", "accelerate", "transformers"]
+
+[project.urls]
+Repository = "https://github.com/asutermo/ComfyUI-Flux-TryOff"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = "asutermo"
+DisplayName = "ComfyUI_Flux_TryOff"
+Icon = ""
