@@ -1,4 +1,3 @@
-import folder_paths # type: ignore
 import os
 import torch
 from diffusers import FluxTransformer2DModel, FluxFillPipeline
@@ -74,7 +73,7 @@ class TryOffRunNode:
                 "num_steps": ("INT", {"default": 50, "min": 1, "max": 100}),
                 "guidance_scale": ("FLOAT", {"default": 30.0, "min": 1.0, "max": 100.0, "step": 0.5}),
                 "seed": ("INT", {"default": 42}),
-                "text": ("STRING", {"multiline": True, "default": 
+                "prompt": ("STRING", {"multiline": True, "default": 
                         "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; "
                         "[IMAGE1] Detailed product shot of clothing "
                         "[IMAGE2] The same clothing is worn by a model in a lifestyle setting."}),
