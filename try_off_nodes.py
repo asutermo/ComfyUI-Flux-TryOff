@@ -105,8 +105,11 @@ class TryOffRunNode:
         ])
 
         # Resize and preprocess
-        image = image_in.convert("RGB").resize((width, height))
-        mask = mask_in.convert("RGB").resize((width, height))
+        def convert_image(tnsr):
+            return Image.fromarray(np.clip(255.0 * tnsr.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)).convert("RGB")
+
+        image = convert_image(image_in).resize((width, height))
+        mask = convert_image(mask_in).resize((width, height))
 
         image_tensor = transform(image)
         mask_tensor = mask_transform(mask)[:1]  # Use only the first channel

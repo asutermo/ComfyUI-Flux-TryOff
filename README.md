@@ -20,4 +20,4 @@ git clone https://huggingface.co/black-forest-labs/FLUX.1-dev
 
 - Allow additional models
 - Formatting/consistency
- 
+- Precision
