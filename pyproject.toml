@@ -1,5 +1,5 @@
 [project]
-name = "ComfyUI_Flux_TryOff"
+name = "ComfyUI-Flux-TryOff"
 description = "Try Off for ComfyUI using Flux and CatVTON."
 version = "1.0.0"
 license = ""
@@ -11,5 +11,5 @@ Repository = "https://github.com/asutermo/ComfyUI-Flux-TryOff"
 
 [tool.comfy]
 PublisherId = "asutermo"
-DisplayName = "ComfyUI_Flux_TryOff"
+DisplayName = "ComfyUI-Flux-TryOff"
 Icon = ""

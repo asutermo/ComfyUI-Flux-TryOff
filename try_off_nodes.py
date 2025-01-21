@@ -28,7 +28,7 @@ class TryOffModelNode:
 
 
 # FluxFillModel Node
-class FluxFillModelNode:
+class TryOffFluxFillModelNode:
     @classmethod
     def INPUT_TYPES(cls):
         return {
