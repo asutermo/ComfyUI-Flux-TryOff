@@ -51,10 +51,10 @@ class TryOffFluxFillModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_pipeline"
 
-    def load_pipeline(self, transformer, pipeline_name, device):
+    def load_pipeline(self, transformer, model_name, device):
         
         pipeline = FluxFillPipeline.from_pretrained(
-            pipeline_name,
+            model_name,
             transformer=transformer,
             torch_dtype=torch.bfloat16,
         ).to(device)
