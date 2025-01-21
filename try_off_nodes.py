@@ -1,3 +1,5 @@
+import folder_paths # type: ignore
+import os
 import torch
 from diffusers import FluxTransformer2DModel, FluxFillPipeline
 from diffusers.utils import load_image
@@ -6,6 +8,10 @@ from PIL import Image
 import numpy as np
 
 device_list = ['cuda', 'cpu']
+node_dir = os.path.dirname(os.path.abspath(__file__))
+comfy_dir = os.path.abspath(os.path.join(node_dir, '..', '..'))
+models_dir = os.path.abspath(os.path.join(comfy_dir, 'models'))
+checkpoints_dir = os.path.abspath(os.path.join(models_dir, 'checkpoints'))
 
 # TryOffModel Node
 class TryOffModelNode:
@@ -31,10 +37,12 @@ class TryOffModelNode:
 class TryOffFluxFillModelNode:
     @classmethod
     def INPUT_TYPES(cls):
+        checkpoints = folder_paths.get_filename_list("checkpoints")
+
         return {
             "required": {
                 "transformer": ("MODEL",),
-                "pipeline_name": (["black-forest-labs/FLUX.1-dev"],),
+                "model_name": (checkpoints,),
                 "device": (device_list,),
             }
         }
