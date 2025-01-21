@@ -52,9 +52,10 @@ class TryOffFluxFillModelNode:
     FUNCTION = "load_pipeline"
 
     def load_pipeline(self, transformer, model_name, device):
+        model_path = folder_paths.get_full_path("checkpoints", model_name)
         
         pipeline = FluxFillPipeline.from_pretrained(
-            model_name,
+            model_path,
             transformer=transformer,
             torch_dtype=torch.bfloat16,
         ).to(device)
