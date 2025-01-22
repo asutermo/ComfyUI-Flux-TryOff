@@ -1,0 +1,413 @@
+{
+  "last_node_id": 28,
+  "last_link_id": 21,
+  "nodes": [
+    {
+      "id": 8,
+      "type": "LayerMask: SegformerB2ClothesUltra",
+      "pos": [
+        2106.130615234375,
+        -3594.5166015625
+      ],
+      "size": [
+        466.1999816894531,
+        630
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            15
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LayerMask: SegformerB2ClothesUltra"
+      },
+      "widgets_values": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        "VITMatte",
+        12,
+        6,
+        0.15,
+        0.99,
+        true,
+        "cuda",
+        2
+      ],
+      "color": "rgba(27, 80, 119, 0.7)"
+    },
+    {
+      "id": 4,
+      "type": "PreviewImage",
+      "pos": [
+        2886.7080078125,
+        -3244.362548828125
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 13
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 19,
+      "type": "PreviewImage",
+      "pos": [
+        3327.439208984375,
+        -2879.7197265625
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 17
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 20,
+      "type": "PreviewImage",
+      "pos": [
+        3332.35302734375,
+        -2544.35009765625
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 18
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 2,
+      "type": "TryOffModelNode",
+      "pos": [
+        1479.5863037109375,
+        -2700.731689453125
+      ],
+      "size": [
+        344.3999938964844,
+        82
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            20
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffModelNode"
+      },
+      "widgets_values": [
+        "xiaozaa/cat-tryoff-flux",
+        "cuda"
+      ]
+    },
+    {
+      "id": 28,
+      "type": "TryOffFluxFillModelNode",
+      "pos": [
+        2016.896240234375,
+        -2629.763916015625
+      ],
+      "size": [
+        541.800048828125,
+        82
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "transformer",
+          "type": "MODEL",
+          "link": 20
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            21
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffFluxFillModelNode"
+      },
+      "widgets_values": [
+        "FLUX.1-dev",
+        "cuda"
+      ]
+    },
+    {
+      "id": 18,
+      "type": "TryOffRunNode",
+      "pos": [
+        2692.95263671875,
+        -2783.34228515625
+      ],
+      "size": [
+        529.199951171875,
+        284
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_in",
+          "type": "IMAGE",
+          "link": 16
+        },
+        {
+          "name": "mask_in",
+          "type": "MASK",
+          "link": 15
+        },
+        {
+          "name": "pipe",
+          "type": "MODEL",
+          "link": 21
+        }
+      ],
+      "outputs": [
+        {
+          "name": "garment_image",
+          "type": "IMAGE",
+          "links": [
+            17
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "tryon_image",
+          "type": "IMAGE",
+          "links": [
+            18
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffRunNode"
+      },
+      "widgets_values": [
+        576,
+        768,
+        20,
+        30,
+        303,
+        "randomize",
+        "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; [IMAGE1] Detailed product shot of clothing [IMAGE2] The same clothing is worn by a model in a lifestyle setting.",
+        "cuda"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "LoadImage",
+      "pos": [
+        1733.1265869140625,
+        -3552.078125
+      ],
+      "size": [
+        315,
+        314
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5,
+            13,
+            16
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "00008_00.jpg",
+        "image"
+      ]
+    }
+  ],
+  "links": [
+    [
+      5,
+      7,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      13,
+      7,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      15,
+      8,
+      1,
+      18,
+      1,
+      "MASK"
+    ],
+    [
+      16,
+      7,
+      0,
+      18,
+      0,
+      "IMAGE"
+    ],
+    [
+      17,
+      18,
+      0,
+      19,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      18,
+      1,
+      20,
+      0,
+      "IMAGE"
+    ],
+    [
+      20,
+      2,
+      0,
+      28,
+      0,
+      "MODEL"
+    ],
+    [
+      21,
+      28,
+      0,
+      18,
+      2,
+      "MODEL"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.5054470284993423,
+      "offset": [
+        -1191.3580801395403,
+        3856.1272682787912
+      ]
+    },
+    "node_versions": {
+      "comfyui_layerstyle": "84d357ad826731a931c305bf11a1101b8ac2976c",
+      "comfy-core": "0.3.10",
+      "ComfyUI-Flux-TryOff": "2bc25ca643273bd948b18989871b6b747f3cd5c3"
+    },
+    "ue_links": []
+  },
+  "version": 0.4
+}
