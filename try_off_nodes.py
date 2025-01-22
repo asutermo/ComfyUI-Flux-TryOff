@@ -84,7 +84,7 @@ class TryOffRunNode:
         }
 
     RETURN_TYPES = ("IMAGE", "IMAGE")
-    RETURN_NAMES = ("garment_image", "tryon_image")
+    RETURN_NAMES = ("garment_image", "tryoff_image")
     CATEGORY = "Processing"
     FUNCTION = "run_inference"
 
