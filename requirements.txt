@@ -1,4 +1,4 @@
 numpy<2.0
-diffusers
+diffusers>=0.32.0
 accelerate>=0.30.0
 transformers>=4.38.2
