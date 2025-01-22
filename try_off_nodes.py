@@ -6,6 +6,7 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 
+
 device_list = ['cuda', 'cpu']
 node_dir = os.path.dirname(os.path.abspath(__file__))
 comfy_dir = os.path.abspath(os.path.join(node_dir, '..', '..'))
@@ -56,6 +57,7 @@ class TryOffFluxFillModelNode:
             transformer=transformer,
             torch_dtype=torch.bfloat16,
         ).to(device)
+        pipeline.enable_model_cpu_offload()
         return (pipeline,)
 
 
@@ -131,11 +133,19 @@ class TryOffRunNode:
             guidance_scale=guidance_scale,
             prompt=prompt,
         ).images[0]
+        
 
         # Split result into garment and try-on images
         garment_result = result.crop((0, 0, width, height))
         tryoff_result = result.crop((width, 0, width * 2, height))
 
-        return garment_result, tryoff_result
+        tryoff_result = torch.tensor(
+                    np.array(tryoff_result) / 255.0, dtype=torch.float32
+                ).unsqueeze(0)
+        garment_result = torch.tensor(
+                    np.array(garment_result) / 255.0, dtype=torch.float32
+                ).unsqueeze(0)
+
+        return  (tryoff_result, garment_result,)
 
 
