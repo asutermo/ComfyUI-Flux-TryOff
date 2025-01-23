@@ -3,6 +3,8 @@
 Original Source: [catvton-flux](https://github.com/nftblackmagic/catvton-flux). I implemented their try-off inference code as ComfyUI nodes
 There's a sample workflow in [Workflow](https://github.com/asutermo/ComfyUI-Flux-TryOff/tree/main/workflow) that uses SegFormer to generate the mask for you. I highly recommend this approach. Alternatively you can provide your own!
 
+Please note, that this was tested with a 4080, and it's quite slow. You'll want a 4090 or better for performant execution as of right now.
+
 This uses diffusers>=0.32.0
 
 ![Sample](./sample.png)
