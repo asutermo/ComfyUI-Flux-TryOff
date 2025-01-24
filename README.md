@@ -30,9 +30,14 @@ EXPORT HUGGING_FACE_HUB_TOKEN=<token_from_above>
 Finally, download FLUX.1
 
 ```sh
+# Download Flux model
 cd ./models/checkpoints
 git lfs install
 git clone https://huggingface.co/black-forest-labs/FLUX.1-dev
+
+# Launch ComfyUI
+cd ./../../
+python ./main.py
 ```
 
 ## TODO
