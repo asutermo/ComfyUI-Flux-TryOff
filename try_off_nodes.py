@@ -113,8 +113,8 @@ class TryOffFluxFillModelNode:
 
     def load_pipeline(self, transformer, model_name, device, cpu_offload):
         model_path = os.path.join(checkpoints_dir, model_name)
-        # if not os.path.exists(model_path):
-        #     raise FileNotFoundError(f"Model checkpoint not found at {model_path}.")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model checkpoint not found at {model_path}.")
         pipeline = FluxFillPipeline.from_pretrained(
             model_path,
             transformer=transformer,
