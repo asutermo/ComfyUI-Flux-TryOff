@@ -12,7 +12,30 @@ node_dir = os.path.dirname(os.path.abspath(__file__))
 comfy_dir = os.path.abspath(os.path.join(node_dir, '..', '..'))
 models_dir = os.path.abspath(os.path.join(comfy_dir, 'models'))
 checkpoints_dir = os.path.abspath(os.path.join(models_dir, 'checkpoints'))
+diffusers_dir = os.path.abspath(os.path.join(models_dir, 'diffusion_models'))
+encoders_dir = os.path.abspath(os.path.join(models_dir, 'text_encoders'))
+clip_dir = os.path.abspath(os.path.join(models_dir, 'clip_vision'))
+vae_dir = os.path.abspath(os.path.join(models_dir, 'vae'))
 
+
+class TryOnModelNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model_name": (["xiaozaa/catvton-flux-beta"],),
+                "device": (device_list,),
+            }
+        }
+
+    CATEGORY = "Models"
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_model"
+
+    def load_model(self, model_name, device):
+        model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=torch.bfloat16).to(device)
+        return (model,)
+    
 # TryOffModel Node
 class TryOffModelNode:
     @classmethod
@@ -33,6 +56,44 @@ class TryOffModelNode:
         return (model,)
 
 
+# # TryOffFluxLoaderModelNode Node. This is meant to be a more 'customizable' node.
+# class TryOffFluxLoaderModelNode:
+#     @classmethod
+#     def INPUT_TYPES(cls):
+#         return {
+#             "required": {
+#                 "model_name": (s.get_model_files(),),
+#                 "vae_name": ("MODEL",),
+#                 "clip_text_encoder": ("CLIP",),
+#                 "clip_tokenizer": ("CLIP_VISION",),
+
+#                 "t5_text_encoder": ("CLIP",),
+#                 "t5_tokenizer": ([".none"] + folder_paths.get_filename_list("clip_vision"),),
+#                 "style_model": ([".none"] + folder_paths.get_filename_list("clip_vision"),),
+#                 "device": (device_list,),
+#                 "cpu_offload": ("BOOL", {"default": True}),
+#             }
+#         }
+
+#     CATEGORY = "Models"
+#     RETURN_TYPES = ("MODEL", "CLIP", "VAE", "CLIP_VISION")
+#     FUNCTION = "load_pipeline"
+
+#     def load_pipeline(self, transformer, model_name, clip_name1, clip_name2_opt, vae_name, clip_vision_name,  device, cpu_offload):
+#         model_path = os.path.join(checkpoints_dir, model_name)
+#         if not os.path.exists(model_path):
+#             raise FileNotFoundError(f"Model checkpoint not found at {model_path}.")
+#         pipeline = FluxFillPipeline.from_pretrained(
+#             model_path,
+#             transformer=transformer,
+#             torch_dtype=torch.bfloat16,
+#         ).to(device)
+
+#         if cpu_offload:
+#             pipeline.enable_model_cpu_offload()
+#         return (pipeline,)
+
+
 # FluxFillModel Node
 class TryOffFluxFillModelNode:
     @classmethod
@@ -42,7 +103,7 @@ class TryOffFluxFillModelNode:
                 "transformer": ("MODEL",),
                 "model_name": (["FLUX.1-dev"],),
                 "device": (device_list,),
-                "cpu_offload": ("BOOL", {"default": True}),
+                "cpu_offload": ("BOOLEAN", {"default": True}),
             }
         }
 
@@ -52,7 +113,8 @@ class TryOffFluxFillModelNode:
 
     def load_pipeline(self, transformer, model_name, device, cpu_offload):
         model_path = os.path.join(checkpoints_dir, model_name)
-        
+        # if not os.path.exists(model_path):
+        #     raise FileNotFoundError(f"Model checkpoint not found at {model_path}.")
         pipeline = FluxFillPipeline.from_pretrained(
             model_path,
             transformer=transformer,
@@ -119,7 +181,9 @@ class TryOffRunNode:
         # Concatenate inputs for FluxFillPipeline
         inpaint_image = torch.cat([garment_tensor, image_tensor], dim=2)
         garment_mask = torch.zeros_like(mask_tensor)
-        extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
+        
+        tryon_extended_mask = torch.cat([garment_mask, mask_tensor], dim=2)
+        tryoff_extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
 
         # Set random seed for reproducibility
         generator = torch.Generator(device=device).manual_seed(seed)
@@ -129,7 +193,7 @@ class TryOffRunNode:
             height=height,
             width=width * 2,
             image=inpaint_image,
-            mask_image=extended_mask,
+            mask_image=tryoff_extended_mask,
             num_inference_steps=num_steps,
             generator=generator,
             max_sequence_length=512,
