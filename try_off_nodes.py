@@ -42,6 +42,7 @@ class TryOffFluxFillModelNode:
                 "transformer": ("MODEL",),
                 "model_name": (["FLUX.1-dev"],),
                 "device": (device_list,),
+                "cpu_offload": ("BOOL", {"default": True}),
             }
         }
 
@@ -49,7 +50,7 @@ class TryOffFluxFillModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_pipeline"
 
-    def load_pipeline(self, transformer, model_name, device):
+    def load_pipeline(self, transformer, model_name, device, cpu_offload):
         model_path = os.path.join(checkpoints_dir, model_name)
         
         pipeline = FluxFillPipeline.from_pretrained(
@@ -57,7 +58,9 @@ class TryOffFluxFillModelNode:
             transformer=transformer,
             torch_dtype=torch.bfloat16,
         ).to(device)
-        pipeline.enable_model_cpu_offload()
+
+        if cpu_offload:
+            pipeline.enable_model_cpu_offload()
         return (pipeline,)
 
 
