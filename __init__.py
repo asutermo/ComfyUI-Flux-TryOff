@@ -8,6 +8,7 @@ NODE_CLASS_MAPPINGS = {
     "TryOnModelNode": TryOnModelNode,
     "TryOnRunNode": TryOnRunNode,
     "TryOnOffRunNode": TryOnOffRunNode,
+    "TryOffHuggingFaceTokenNode": TryOffHuggingFaceTokenNode
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -17,5 +18,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "TryOnModelNode": "TryOn Model Loader [ComfyUI-Flux-TryOff]",
     "TryOnRunNode": "Run TryOn Inference [ComfyUI-Flux-TryOff]",
     "TryOnOffRunNode": "Run TryOn or TryOff Inference [ComfyUI-Flux-TryOff]",
+    "TryOffHuggingFaceTokenNode": "HuggingFace Token Setter [ComfyUI-Flux-TryOff]"
 }
 
