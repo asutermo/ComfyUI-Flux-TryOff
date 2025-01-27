@@ -17,7 +17,23 @@ encoders_dir = os.path.abspath(os.path.join(models_dir, 'text_encoders'))
 clip_dir = os.path.abspath(os.path.join(models_dir, 'clip_vision'))
 vae_dir = os.path.abspath(os.path.join(models_dir, 'vae'))
 
+class TryOffHuggingFaceTokenNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "hf_token": ("STRING",),
+            }
+        }
+    
+    CATEGORY = "Secrets"
+    FUNCTION = "get_hf_token"
 
+    def get_hf_token(self, hf_token: str) -> None:
+        os.environ.set("HF_TOKEN", hf_token)
+        os.environ.set("HUGGING_FACE_HUB_TOKEN", hf_token)
+
+# Try On Model Node
 class TryOnModelNode:
     @classmethod
     def INPUT_TYPES(cls):
