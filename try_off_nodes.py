@@ -44,6 +44,7 @@ class TryOffModelNode:
             "required": {
                 "model_name": (["xiaozaa/cat-tryoff-flux"],),
                 "device": (device_list,),
+                "cpu_offload": ("BOOLEAN", {"default": True}),
             }
         }
 
@@ -51,48 +52,11 @@ class TryOffModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_model"
 
-    def load_model(self, model_name, device):
+    def load_model(self, model_name, device, cpu_offload):
         model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=torch.bfloat16).to(device)
+        if cpu_offload:
+            model.enable_model_cpu_offload()
         return (model,)
-
-
-# # TryOffFluxLoaderModelNode Node. This is meant to be a more 'customizable' node.
-# class TryOffFluxLoaderModelNode:
-#     @classmethod
-#     def INPUT_TYPES(cls):
-#         return {
-#             "required": {
-#                 "model_name": (s.get_model_files(),),
-#                 "vae_name": ("MODEL",),
-#                 "clip_text_encoder": ("CLIP",),
-#                 "clip_tokenizer": ("CLIP_VISION",),
-
-#                 "t5_text_encoder": ("CLIP",),
-#                 "t5_tokenizer": ([".none"] + folder_paths.get_filename_list("clip_vision"),),
-#                 "style_model": ([".none"] + folder_paths.get_filename_list("clip_vision"),),
-#                 "device": (device_list,),
-#                 "cpu_offload": ("BOOL", {"default": True}),
-#             }
-#         }
-
-#     CATEGORY = "Models"
-#     RETURN_TYPES = ("MODEL", "CLIP", "VAE", "CLIP_VISION")
-#     FUNCTION = "load_pipeline"
-
-#     def load_pipeline(self, transformer, model_name, clip_name1, clip_name2_opt, vae_name, clip_vision_name,  device, cpu_offload):
-#         model_path = os.path.join(checkpoints_dir, model_name)
-#         if not os.path.exists(model_path):
-#             raise FileNotFoundError(f"Model checkpoint not found at {model_path}.")
-#         pipeline = FluxFillPipeline.from_pretrained(
-#             model_path,
-#             transformer=transformer,
-#             torch_dtype=torch.bfloat16,
-#         ).to(device)
-
-#         if cpu_offload:
-#             pipeline.enable_model_cpu_offload()
-#         return (pipeline,)
-
 
 # FluxFillModel Node
 class TryOffFluxFillModelNode:
