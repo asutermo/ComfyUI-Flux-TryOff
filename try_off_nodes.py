@@ -97,7 +97,7 @@ class FluxFillModelNode2:
         text_encoder_2_model = T5EncoderModel.from_pretrained("XLabs-AI/xflux_text_encoders", torch_dtype=dtype, **t_args)
 
         vae_path = os.path.join(vae_dir, vae)
-        vae_model = AutoencoderKL.from_single_file(vae_path, torch_dtype=dtype, **d_args)
+        #vae_model = AutoencoderKL.from_single_file(vae_path, torch_dtype=dtype, **d_args)
 
         for path in FluxFillModelNode2.MODEL_PATHS:
             model_path = os.path.join(models_dir, path, model)
@@ -107,14 +107,14 @@ class FluxFillModelNode2:
         if not model_path:
             raise ValueError(f"Model {model} not found in {FluxFillModelNode2.MODEL_PATHS}")
 
-        print(model_path, transformer,  vae_path)
+        print(model_path)
         pipeline = FluxFillPipeline.from_single_file(
             model_path,
             transformer=transformer,
             text_encoder=text_encoder_model,
             text_encoder_2=text_encoder_2_model,
-            vae=vae_model,
-            torch_dtype=torch.bfloat16,
+            #vae=vae_model,
+            torch_dtype=dtype,
             device_map="balanced",
             **d_args
         )
