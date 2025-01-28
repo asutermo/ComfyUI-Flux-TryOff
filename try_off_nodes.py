@@ -19,8 +19,7 @@ class TryOffModelNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "model_name": (["xiaozaa/cat-tryoff-flux"],),
-                "device": (device_list,),
+                "model_name": (["xiaozaa/cat-tryoff-flux"],)
             }
         }
 
@@ -28,8 +27,8 @@ class TryOffModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_model"
 
-    def load_model(self, model_name, device):
-        model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=torch.bfloat16).to(device)
+    def load_model(self, model_name):
+        model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=torch.bfloat16, device_map="auto")
         return (model,)
 
 
@@ -41,7 +40,6 @@ class TryOffFluxFillModelNode:
             "required": {
                 "transformer": ("MODEL",),
                 "model_name": (["FLUX.1-dev"],),
-                "device": (device_list,),
             }
         }
 
@@ -49,14 +47,15 @@ class TryOffFluxFillModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_pipeline"
 
-    def load_pipeline(self, transformer, model_name, device):
+    def load_pipeline(self, transformer, model_name):
         model_path = os.path.join(checkpoints_dir, model_name)
         
         pipeline = FluxFillPipeline.from_pretrained(
             model_path,
             transformer=transformer,
             torch_dtype=torch.bfloat16,
-        ).to(device)
+            device_map="auto",
+        )
         pipeline.enable_model_cpu_offload()
         return (pipeline,)
 
