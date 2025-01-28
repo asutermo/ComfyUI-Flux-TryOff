@@ -6,12 +6,18 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 
+from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig, FluxTransformer2DModel, FluxPipeline
+from transformers import BitsAndBytesConfig as BitsAndBytesConfig, T5EncoderModel
+
+from folder_paths import models_dir, get_filename_list, get_full_path_or_raise, supported_pt_extensions
 
 device_list = ['cuda', 'cpu']
 node_dir = os.path.dirname(os.path.abspath(__file__))
 comfy_dir = os.path.abspath(os.path.join(node_dir, '..', '..'))
 models_dir = os.path.abspath(os.path.join(comfy_dir, 'models'))
 checkpoints_dir = os.path.abspath(os.path.join(models_dir, 'checkpoints'))
+vae_dir = os.path.abspath(os.path.join(models_dir, 'vae'))    
+text_encoders = os.path.abspath(os.path.join(models_dir, 'text_encoders'))    
 
 # TryOffModel Node
 class TryOffModelNode:
@@ -28,12 +34,87 @@ class TryOffModelNode:
     FUNCTION = "load_model"
 
     def load_model(self, model_name):
-        model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=torch.bfloat16, device_map="auto")
+        model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=torch.bfloat16)
         return (model,)
+
+# add switches
+quant_config = BitsAndBytesConfig(load_in_8bit=True)
+
+
+class FluxFillModelNode2:
+    @staticmethod
+    def vae_list():
+        return get_filename_list("vae")
+
+    @staticmethod
+    def te_list():
+        return get_filename_list("text_encoders")
+    
+    MODEL_PATHS = ["checkpoints", "diffusion_models", "unet"]
+
+    @staticmethod
+    def model_list():
+        paths = []
+        [paths.extend(get_filename_list(path)) for path in FluxFillModelNode2.MODEL_PATHS]
+        return paths
+    
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model": (FluxFillModelNode2.model_list(),),
+                "transformer": ("MODEL",),
+                "text_encoder": (FluxFillModelNode2.te_list(),),
+                "text_encoder_2": (FluxFillModelNode2.te_list(),),
+                "vae": (FluxFillModelNode2.vae_list(),),
+            }
+        }
+
+    CATEGORY = "Models"
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_pipeline"
+    
+    def load_pipeline(self, model, transformer, text_encoder, text_encoder_2, vae):
+        
+        pipeline = FluxFillPipeline.from_singlefile(
+            model,
+            transformer=transformer,
+            torch_dtype=torch.bfloat16,
+            device_map="balanced",
+        )
+        return (pipeline,)
+
+
+class FluxFillModelNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "transformer": ("MODEL",),
+                "model_name": (["FLUX.1-dev"],),
+            }
+        }
+
+    CATEGORY = "Models"
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_pipeline"
+
+    def load_pipeline(self, transformer, model_name):
+        model_path = os.path.join(checkpoints_dir, model_name)
+        pipeline = FluxFillPipeline.from_pretrained(
+            model_path,
+            transformer=transformer,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+        pipeline.enable_model_cpu_offload()
+        return (pipeline,)
+
 
 
 # FluxFillModel Node
-class TryOffFluxFillModelNode:
+class HFTryOffFluxFillModelNode:
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -88,6 +169,9 @@ class TryOffRunNode:
     FUNCTION = "run_inference"
 
     def run_inference(self, image_in, mask_in, pipe, width, height, num_steps, guidance_scale, seed, prompt, device):
+        pipe.enable_sequential_cpu_offload()
+        pipe.vae.enable_slicing()
+        pipe.vae.enable_tiling()
         pipe.transformer.to(torch.bfloat16)
 
         # Preprocessing transforms
