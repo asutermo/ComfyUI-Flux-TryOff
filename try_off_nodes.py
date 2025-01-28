@@ -76,10 +76,24 @@ class FluxFillModelNode2:
     FUNCTION = "load_pipeline"
     
     def load_pipeline(self, model, transformer, text_encoder, text_encoder_2, vae):
-        
+        vae_path = os.path.join(vae_dir, vae)
+        encoder_path = os.path.join(text_encoders, text_encoder)
+        encoder2_path = os.path.join(text_encoders, text_encoder_2)
+
+        for path in FluxFillModelNode2.MODEL_PATHS:
+            model_path = os.path.join(models_dir, path, model)
+            if model_path:
+                break
+
+        if not model_path:
+            raise ValueError(f"Model {model} not found in {FluxFillModelNode2.MODEL_PATHS}")
+
         pipeline = FluxFillPipeline.from_singlefile(
-            model,
+            model_path,
             transformer=transformer,
+            text_encoder=encoder_path,
+            text_encoder_2=encoder2_path,
+            vae=vae_path,
             torch_dtype=torch.bfloat16,
             device_map="balanced",
         )
