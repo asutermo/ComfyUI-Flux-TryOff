@@ -6,8 +6,12 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 
-from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig, FluxTransformer2DModel, FluxPipeline
-from transformers import BitsAndBytesConfig as BitsAndBytesConfig, T5EncoderModel
+from diffusers import FluxTransformer2DModel, FluxPipeline
+from transformers import BitsAndBytesConfig as BitsAndBytesConfig, T5EncoderModel, CLIPTextModel
+from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
+
+from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig
+from transformers import BitsAndBytesConfig as TransformersBitsAndBytesConfig
 
 from folder_paths import models_dir, get_filename_list, get_full_path_or_raise, supported_pt_extensions
 
@@ -18,6 +22,10 @@ models_dir = os.path.abspath(os.path.join(comfy_dir, 'models'))
 checkpoints_dir = os.path.abspath(os.path.join(models_dir, 'checkpoints'))
 vae_dir = os.path.abspath(os.path.join(models_dir, 'vae'))    
 text_encoders = os.path.abspath(os.path.join(models_dir, 'text_encoders'))    
+dtype = torch.bfloat16
+
+t_quant_config = TransformersBitsAndBytesConfig(load_in_8bit=True,)
+d_quant_config = BitsAndBytesConfig(load_in_8bit=True)
 
 # TryOffModel Node
 class TryOffModelNode:
@@ -25,7 +33,8 @@ class TryOffModelNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "model_name": (["xiaozaa/cat-tryoff-flux"],)
+                "model_name": (["xiaozaa/cat-tryoff-flux"],),
+                "eight_bit_quantize": ("BOOLEAN", {"default": False}),
             }
         }
 
@@ -33,12 +42,14 @@ class TryOffModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_model"
 
-    def load_model(self, model_name):
-        model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=torch.bfloat16)
+    def load_model(self, model_name, eight_bit_quantize):
+        if eight_bit_quantize:
+            model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=dtype, quantization_config=t_quant_config)
+        else:
+            model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=dtype)
         return (model,)
 
 # add switches
-quant_config = BitsAndBytesConfig(load_in_8bit=True)
 
 
 class FluxFillModelNode2:
@@ -65,9 +76,8 @@ class FluxFillModelNode2:
             "required": {
                 "model": (FluxFillModelNode2.model_list(),),
                 "transformer": ("MODEL",),
-                "text_encoder": (FluxFillModelNode2.te_list(),),
-                "text_encoder_2": (FluxFillModelNode2.te_list(),),
                 "vae": (FluxFillModelNode2.vae_list(),),
+                "eight_bit_quantize": ("BOOLEAN", {"default": False}),
             }
         }
 
@@ -75,10 +85,19 @@ class FluxFillModelNode2:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_pipeline"
     
-    def load_pipeline(self, model, transformer, text_encoder, text_encoder_2, vae):
+    def load_pipeline(self, model, transformer, vae, eight_bit_quantize):
+        if eight_bit_quantize:
+            d_args = {"quantization_config": d_quant_config}
+            t_args = {"quantization_config": t_quant_config}
+        else:
+            d_args = {}
+            t_args = {}
+
+        text_encoder_model = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype, **t_args)
+        text_encoder_2_model = T5EncoderModel.from_pretrained("XLabs-AI/xflux_text_encoders", torch_dtype=dtype, **t_args)
+
         vae_path = os.path.join(vae_dir, vae)
-        encoder_path = os.path.join(text_encoders, text_encoder)
-        encoder2_path = os.path.join(text_encoders, text_encoder_2)
+        vae_model = AutoencoderKL.from_single_file(vae_path, torch_dtype=dtype, **d_args)
 
         for path in FluxFillModelNode2.MODEL_PATHS:
             model_path = os.path.join(models_dir, path, model)
@@ -88,43 +107,18 @@ class FluxFillModelNode2:
         if not model_path:
             raise ValueError(f"Model {model} not found in {FluxFillModelNode2.MODEL_PATHS}")
 
-        pipeline = FluxFillPipeline.from_singlefile(
+        print(model_path, transformer,  vae_path)
+        pipeline = FluxFillPipeline.from_single_file(
             model_path,
             transformer=transformer,
-            text_encoder=encoder_path,
-            text_encoder_2=encoder2_path,
-            vae=vae_path,
+            text_encoder=text_encoder_model,
+            text_encoder_2=text_encoder_2_model,
+            vae=vae_model,
             torch_dtype=torch.bfloat16,
             device_map="balanced",
+            **d_args
         )
         return (pipeline,)
-
-
-class FluxFillModelNode:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "transformer": ("MODEL",),
-                "model_name": (["FLUX.1-dev"],),
-            }
-        }
-
-    CATEGORY = "Models"
-    RETURN_TYPES = ("MODEL",)
-    FUNCTION = "load_pipeline"
-
-    def load_pipeline(self, transformer, model_name):
-        model_path = os.path.join(checkpoints_dir, model_name)
-        pipeline = FluxFillPipeline.from_pretrained(
-            model_path,
-            transformer=transformer,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-        )
-        pipeline.enable_model_cpu_offload()
-        return (pipeline,)
-
 
 
 # FluxFillModel Node
