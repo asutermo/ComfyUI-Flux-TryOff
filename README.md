@@ -43,6 +43,13 @@ git lfs install
 git clone https://huggingface.co/black-forest-labs/FLUX.1-dev
 ```
 
+And run
+
+```sh
+cd ../..
+python ./main.py
+```
+
 ![Sample](./sample.png)
 
 
