@@ -9,7 +9,8 @@ This uses diffusers>=0.32.0
 
 ![Sample](./sample.png)
 
-Quantized. 4 Bit and mixed are untested.
+Quantized. 8Bit. Please note, it was definitely slower to generate.
+4 Bit and mixed are untested.
 
 ![Quantized Sample](./quantized_sample.png)
 
@@ -46,7 +47,7 @@ git clone https://huggingface.co/black-forest-labs/FLUX.1-dev
 
 ## TODO
 
+- Multi-gpu testing
 - Optimize, optimize, optimize.
 - Allow additional models
 - Formatting/consistency
-- Precision
