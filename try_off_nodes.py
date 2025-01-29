@@ -94,7 +94,8 @@ class TryOffFluxFillModelNode:
                 model_path,
                 transformer=transformer,
                 torch_dtype=dtype,
-                quantization_config=diffusers_config
+                quantization_config=diffusers_config,
+                device_map="balanced"
             )
         else:
             pipeline = FluxFillPipeline.from_pretrained(
@@ -172,7 +173,7 @@ class TryOffRunNode:
             image=inpaint_image,
             mask_image=extended_mask,
             num_inference_steps=num_steps,
-            generator=torch.Generator(device="cpu").manual_seed(seed),
+            generator=torch.manual_seed(seed),
             max_sequence_length=512,
             guidance_scale=guidance_scale,
             prompt=prompt,
