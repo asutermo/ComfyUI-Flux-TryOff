@@ -6,12 +6,18 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 
+from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig
+from transformers import BitsAndBytesConfig as TransformersBitsAndBytesConfig
 
 device_list = ['cuda', 'cpu']
 node_dir = os.path.dirname(os.path.abspath(__file__))
 comfy_dir = os.path.abspath(os.path.join(node_dir, '..', '..'))
 models_dir = os.path.abspath(os.path.join(comfy_dir, 'models'))
 checkpoints_dir = os.path.abspath(os.path.join(models_dir, 'checkpoints'))
+
+dtype = torch.bfloat16
+t_quant_config = TransformersBitsAndBytesConfig(load_in_8bit=True,)
+d_quant_config = DiffusersBitsAndBytesConfig(load_in_8bit=True)
 
 # TryOffModel Node
 class TryOffModelNode:
@@ -20,7 +26,9 @@ class TryOffModelNode:
         return {
             "required": {
                 "model_name": (["xiaozaa/cat-tryoff-flux"],),
+                "eight_bit_quantize": ("BOOLEAN", {"default": False}),
                 "device": (device_list,),
+
             }
         }
 
@@ -28,8 +36,11 @@ class TryOffModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_model"
 
-    def load_model(self, model_name, device):
-        model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=torch.bfloat16).to(device)
+    def load_model(self, model_name, eight_bit_quantize, device):
+        if eight_bit_quantize:
+            model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=dtype, quantization_config=t_quant_config).to(device)
+        else:
+            model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=dtype).to(device)
         return (model,)
 
 
@@ -41,7 +52,9 @@ class TryOffFluxFillModelNode:
             "required": {
                 "transformer": ("MODEL",),
                 "model_name": (["FLUX.1-dev"],),
+                "eight_bit_quantize": ("BOOLEAN", {"default": False}),
                 "device": (device_list,),
+                "cpu_offload": ("BOOLEAN", {"default": False}),
             }
         }
 
@@ -49,15 +62,26 @@ class TryOffFluxFillModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_pipeline"
 
-    def load_pipeline(self, transformer, model_name, device):
+    def load_pipeline(self, transformer, model_name, eight_bit_quantize, device, cpu_offload):
         model_path = os.path.join(checkpoints_dir, model_name)
-        
-        pipeline = FluxFillPipeline.from_pretrained(
-            model_path,
-            transformer=transformer,
-            torch_dtype=torch.bfloat16,
-        ).to(device)
-        pipeline.enable_model_cpu_offload()
+
+        if eight_bit_quantize:
+            pipeline = FluxFillPipeline.from_pretrained(
+                model_path,
+                transformer=transformer,
+                torch_dtype=dtype,
+                quantization_config=d_quant_config
+            ).to(device)
+        else:
+            pipeline = FluxFillPipeline.from_pretrained(
+                model_path,
+                transformer=transformer,
+                torch_dtype=dtype,
+            ).to(device)
+
+        if cpu_offload:
+            pipeline.offload_model_to_cpu()
+
         return (pipeline,)
 
 
@@ -89,7 +113,7 @@ class TryOffRunNode:
     FUNCTION = "run_inference"
 
     def run_inference(self, image_in, mask_in, pipe, width, height, num_steps, guidance_scale, seed, prompt, device):
-        pipe.transformer.to(torch.bfloat16)
+        pipe.transformer.to(dtype)
 
         # Preprocessing transforms
         transform = transforms.Compose([
@@ -118,9 +142,6 @@ class TryOffRunNode:
         garment_mask = torch.zeros_like(mask_tensor)
         extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
 
-        # Set random seed for reproducibility
-        generator = torch.Generator(device=device).manual_seed(seed)
-
         # Run pipeline
         result = pipe(
             height=height,
@@ -128,7 +149,7 @@ class TryOffRunNode:
             image=inpaint_image,
             mask_image=extended_mask,
             num_inference_steps=num_steps,
-            generator=generator,
+            generator=torch.Generator(device=device).manual_seed(seed),
             max_sequence_length=512,
             guidance_scale=guidance_scale,
             prompt=prompt,
