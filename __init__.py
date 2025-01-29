@@ -14,4 +14,3 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "TryOffRunNode": "Run TryOff Inference [ComfyUI-Flux-TryOff]",
     "TryOffQuantizerNode": "TryOff Quantizer [ComfyUI-Flux-TryOff]",
 }
-
