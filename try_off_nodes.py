@@ -19,6 +19,28 @@ dtype = torch.bfloat16
 t_quant_config = TransformersBitsAndBytesConfig(load_in_8bit=True,)
 d_quant_config = DiffusersBitsAndBytesConfig(load_in_8bit=True)
 
+class TryOffQuantizerNode:
+    """Enable quantization to load heavier models"""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "quantizer": (["None", "8Bit", "4Bit"],),
+            }
+        }
+
+    CATEGORY = "Quantize"
+    RETURN_TYPES = ("transformers_config", "diffusers_config",)
+    FUNCTION = "make_config"
+
+    def make_config(self, quantizer):
+        if quantizer == "8Bit":
+            return (TransformersBitsAndBytesConfig(load_in_8bit=True), DiffusersBitsAndBytesConfig(load_in_8bit=True))
+        elif quantizer == "4Bit":
+            return (TransformersBitsAndBytesConfig(load_in_4bit=True), DiffusersBitsAndBytesConfig(load_in_4bit=True))
+        else:
+            return (None, None)
+
 # TryOffModel Node
 class TryOffModelNode:
     @classmethod
@@ -26,9 +48,10 @@ class TryOffModelNode:
         return {
             "required": {
                 "model_name": (["xiaozaa/cat-tryoff-flux"],),
-                "eight_bit_quantize": ("BOOLEAN", {"default": False}),
                 "device": (device_list,),
-
+            },
+            "optional": {
+                "transformers_config": ("transformers_config",)
             }
         }
 
@@ -36,9 +59,9 @@ class TryOffModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_model"
 
-    def load_model(self, model_name, eight_bit_quantize, device):
-        if eight_bit_quantize:
-            model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=dtype, quantization_config=t_quant_config).to(device)
+    def load_model(self, model_name, device, transformers_config):
+        if transformers_config:
+            model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=dtype, quantization_config=transformers_config)
         else:
             model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=dtype).to(device)
         return (model,)
@@ -52,9 +75,10 @@ class TryOffFluxFillModelNode:
             "required": {
                 "transformer": ("MODEL",),
                 "model_name": (["FLUX.1-dev"],),
-                "eight_bit_quantize": ("BOOLEAN", {"default": False}),
                 "device": (device_list,),
-                "cpu_offload": ("BOOLEAN", {"default": False}),
+            },            
+            "optional": {
+                "diffusers_config": ("diffusers_config",)
             }
         }
 
@@ -62,16 +86,16 @@ class TryOffFluxFillModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_pipeline"
 
-    def load_pipeline(self, transformer, model_name, eight_bit_quantize, device, cpu_offload):
+    def load_pipeline(self, transformer, model_name, device, diffusers_config):
         model_path = os.path.join(checkpoints_dir, model_name)
 
-        if eight_bit_quantize:
+        if diffusers_config:
             pipeline = FluxFillPipeline.from_pretrained(
                 model_path,
                 transformer=transformer,
                 torch_dtype=dtype,
-                quantization_config=d_quant_config
-            ).to(device)
+                quantization_config=diffusers_config
+            )
         else:
             pipeline = FluxFillPipeline.from_pretrained(
                 model_path,
@@ -79,8 +103,8 @@ class TryOffFluxFillModelNode:
                 torch_dtype=dtype,
             ).to(device)
 
-        if cpu_offload:
-            pipeline.offload_model_to_cpu()
+            pipeline.enable_model_cpu_offload()
+            pipeline.transformer.to(dtype)
 
         return (pipeline,)
 
@@ -113,7 +137,6 @@ class TryOffRunNode:
     FUNCTION = "run_inference"
 
     def run_inference(self, image_in, mask_in, pipe, width, height, num_steps, guidance_scale, seed, prompt, device):
-        pipe.transformer.to(dtype)
 
         # Preprocessing transforms
         transform = transforms.Compose([
@@ -149,7 +172,7 @@ class TryOffRunNode:
             image=inpaint_image,
             mask_image=extended_mask,
             num_inference_steps=num_steps,
-            generator=torch.Generator(device=device).manual_seed(seed),
+            generator=torch.Generator(device="cpu").manual_seed(seed),
             max_sequence_length=512,
             guidance_scale=guidance_scale,
             prompt=prompt,
