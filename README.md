@@ -5,10 +5,13 @@ There's a sample workflow in [Workflow](https://github.com/asutermo/ComfyUI-Flux
 
 Please note, that this was tested with a 4080, and it's quite slow. You'll want a 4090 or better for performant execution as of right now.
 
-This uses diffusers>=0.32.0
+This uses diffusers>=0.32.0 (soon to be 0.32.2).
 
-![Sample](./sample.png)
-
+```diff
+- This is presently incompatible with Flux fp8.
+- Please follow the instructions below and use the HuggingFace FLUX.1 dev process below.
+- I'm working on alternatives to this
+```
 After heavy experimenting with Try-on, it's nice to have a [Try-Off, xiaozaa/cat-tryoff-flux](https://huggingface.co/xiaozaa/cat-tryoff-flux) model to work with.
 
 The cat-try-off-flux model will download automatically. The Flux.1-dev model requires some effort.
@@ -39,6 +42,9 @@ cd ./models/checkpoints
 git lfs install
 git clone https://huggingface.co/black-forest-labs/FLUX.1-dev
 ```
+
+![Sample](./sample.png)
+
 
 ## TODO
 
