@@ -14,7 +14,7 @@
         102
       ],
       "flags": {},
-      "order": 2,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -25,7 +25,7 @@
         {
           "name": "diffusers_config",
           "type": "diffusers_config",
-          "link": null,
+          "link": 3,
           "shape": 7
         }
       ],
@@ -59,13 +59,13 @@
         82
       ],
       "flags": {},
-      "order": 0,
+      "order": 2,
       "mode": 0,
       "inputs": [
         {
           "name": "transformers_config",
           "type": "transformers_config",
-          "link": null,
+          "link": 4,
           "shape": 7
         }
       ],
@@ -88,6 +88,46 @@
       ]
     },
     {
+      "id": 5,
+      "type": "TryOffQuantizerNode",
+      "pos": [
+        5091.56982421875,
+        -1415.398681640625
+      ],
+      "size": [
+        478.8000183105469,
+        78
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "transformers_config",
+          "type": "transformers_config",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "diffusers_config",
+          "type": "diffusers_config",
+          "links": [
+            3
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffQuantizerNode"
+      },
+      "widgets_values": [
+        "8Bit"
+      ]
+    },
+    {
       "id": 7,
       "type": "PreviewImage",
       "pos": [
@@ -99,7 +139,7 @@
         246
       ],
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -111,8 +151,7 @@
       "outputs": [],
       "properties": {
         "Node name for S&R": "PreviewImage"
-      },
-      "widgets_values": []
+      }
     },
     {
       "id": 8,
@@ -185,6 +224,46 @@
       "color": "rgba(27, 80, 119, 0.7)"
     },
     {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        5224.75927734375,
+        -2108.481201171875
+      ],
+      "size": [
+        315,
+        314
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5,
+            9
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Model Image",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "00008_00.jpg",
+        "image"
+      ]
+    },
+    {
       "id": 2,
       "type": "PreviewImage",
       "pos": [
@@ -196,7 +275,7 @@
         246
       ],
       "flags": {},
-      "order": 7,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -208,8 +287,7 @@
       "outputs": [],
       "properties": {
         "Node name for S&R": "PreviewImage"
-      },
-      "widgets_values": []
+      }
     },
     {
       "id": 9,
@@ -223,7 +301,7 @@
         246
       ],
       "flags": {},
-      "order": 6,
+      "order": 7,
       "mode": 0,
       "inputs": [
         {
@@ -235,8 +313,7 @@
       "outputs": [],
       "properties": {
         "Node name for S&R": "PreviewImage"
-      },
-      "widgets_values": []
+      }
     },
     {
       "id": 6,
@@ -250,7 +327,7 @@
         284
       ],
       "flags": {},
-      "order": 5,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -295,50 +372,10 @@
         768,
         20,
         30,
-        1253,
+        108,
         "randomize",
         "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; [IMAGE1] Detailed product shot of clothing [IMAGE2] The same clothing is worn by a model in a lifestyle setting.",
         "cuda"
-      ]
-    },
-    {
-      "id": 1,
-      "type": "LoadImage",
-      "pos": [
-        5224.75927734375,
-        -2108.481201171875
-      ],
-      "size": [
-        315,
-        314
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            5,
-            9
-          ],
-          "slot_index": 0
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "title": "Model Image",
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "00008_00.jpg",
-        "image"
       ]
     }
   ],
@@ -358,6 +395,22 @@
       3,
       0,
       "MODEL"
+    ],
+    [
+      3,
+      5,
+      1,
+      3,
+      1,
+      "diffusers_config"
+    ],
+    [
+      4,
+      5,
+      0,
+      4,
+      0,
+      "transformers_config"
     ],
     [
       5,
@@ -411,7 +464,7 @@
   "groups": [
     {
       "id": 1,
-      "title": "Non-Quantized",
+      "title": "8Bit Quantized",
       "bounding": [
         4972.4296875,
         -2245.559326171875,
@@ -426,14 +479,14 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.7400249944258209,
+      "scale": 0.6727499949325646,
       "offset": [
-        -4940.355687418321,
-        2279.9895917029157
+        -4427.950476117896,
+        2528.443727215718
       ]
     },
     "node_versions": {
-      "ComfyUI-Flux-TryOff": "70f8330e8c8c154a1fa4208cdfdb58a61e4a4dff",
+      "ComfyUI-Flux-TryOff": "63915f21f2d109cdcea8b1f80140d514d09bbf10",
       "comfy-core": "0.3.10",
       "comfyui_layerstyle": "84d357ad826731a931c305bf11a1101b8ac2976c"
     },
