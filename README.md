@@ -9,6 +9,10 @@ This uses diffusers>=0.32.0
 
 ![Sample](./sample.png)
 
+Quantized. 4 Bit and mixed are untested.
+
+![Quantized Sample](./quantized_sample.png)
+
 After heavy experimenting with Try-on, it's nice to have a [Try-Off, xiaozaa/cat-tryoff-flux](https://huggingface.co/xiaozaa/cat-tryoff-flux) model to work with.
 
 The cat-try-off-flux model will download automatically. The Flux.1-dev model requires some effort.

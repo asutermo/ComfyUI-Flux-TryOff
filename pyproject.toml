@@ -1,7 +1,7 @@
 [project]
 name = "ComfyUI-Flux-TryOff"
-description = "Try Off for ComfyUI using Flux and CatVTON."
-version = "1.0.0"
+description = "Try Off for ComfyUI using Flux and CatVTON. Now with Quantized (8-bit) Support."
+version = "1.1.0"
 license = ""
 dependencies = ["numpy", "pillow", "diffusers", "accelerate", "transformers"]
 

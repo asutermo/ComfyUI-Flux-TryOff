@@ -59,7 +59,7 @@ class TryOffModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_model"
 
-    def load_model(self, model_name, device, transformers_config):
+    def load_model(self, model_name, device, transformers_config=None):
         if transformers_config:
             model = FluxTransformer2DModel.from_pretrained(model_name, torch_dtype=dtype, quantization_config=transformers_config)
         else:
@@ -86,7 +86,7 @@ class TryOffFluxFillModelNode:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_pipeline"
 
-    def load_pipeline(self, transformer, model_name, device, diffusers_config):
+    def load_pipeline(self, transformer, model_name, device, diffusers_config=None):
         model_path = os.path.join(checkpoints_dir, model_name)
 
         if diffusers_config:
