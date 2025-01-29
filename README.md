@@ -51,3 +51,4 @@ git clone https://huggingface.co/black-forest-labs/FLUX.1-dev
 - Optimize, optimize, optimize.
 - Allow additional models
 - Formatting/consistency
+- TryOn
