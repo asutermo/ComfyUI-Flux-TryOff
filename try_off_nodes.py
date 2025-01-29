@@ -16,8 +16,6 @@ models_dir = os.path.abspath(os.path.join(comfy_dir, 'models'))
 checkpoints_dir = os.path.abspath(os.path.join(models_dir, 'checkpoints'))
 
 dtype = torch.bfloat16
-t_quant_config = TransformersBitsAndBytesConfig(load_in_8bit=True,)
-d_quant_config = DiffusersBitsAndBytesConfig(load_in_8bit=True)
 
 class TryOffQuantizerNode:
     """Enable quantization to load heavier models"""
