@@ -3,6 +3,7 @@ import os
 import numpy as np  # type: ignore
 import torch  # type: ignore
 from diffusers import (  # type: ignore
+    AutoencoderKL,
     BitsAndBytesConfig as DiffusersBitsAndBytesConfig,
     FlowMatchEulerDiscreteScheduler,
     FluxFillPipeline,
@@ -32,6 +33,7 @@ comfy_dir = os.path.abspath(os.path.join(node_dir, "..", ".."))
 models_dir = os.path.abspath(os.path.join(comfy_dir, "models"))
 checkpoints_dir = os.path.abspath(os.path.join(models_dir, "checkpoints"))
 encoders_dir = os.path.abspath(os.path.join(models_dir, "text_encoders"))
+vae_dir = os.path.abspath(os.path.join(models_dir, "vae"))
 
 dtype = torch.bfloat16
 
@@ -147,7 +149,6 @@ class FluxFillPipelineNode:
         return {
             "required": {
                 "transformer": ("MODEL",),
-                "vae": ("VAE",),
                 "device": (device_list,),
             },
             "optional": {
@@ -161,7 +162,7 @@ class FluxFillPipelineNode:
     FUNCTION = "load_pipeline"
 
     def load_pipeline(
-        self, transformer, vae, device, transformers_config=None, diffusers_config=None
+        self, transformer, device, transformers_config=None, diffusers_config=None
     ):
         if transformers_config:
             tokenizer = CLIPTokenizer.from_pretrained(
@@ -213,6 +214,12 @@ class FluxFillPipelineNode:
         scheduler = FlowMatchEulerDiscreteScheduler()
 
         if diffusers_config:
+            vae = AutoencoderKL.from_pretrained(
+                "madebyollin/taef1",
+                cache_dir=vae_dir,
+                torch_dtype=dtype,
+                quantization_config=diffusers_config,
+            )
             pipeline = FluxFillPipeline(
                 scheduler=scheduler,
                 vae=vae,
@@ -225,6 +232,9 @@ class FluxFillPipelineNode:
                 device_map="balanced",
             )
         else:
+            vae = AutoencoderKL.from_pretrained(
+                "madebyollin/taef1", cache_dir=vae_dir, torch_dtype=dtype
+            )
             pipeline = FluxFillPipeline(
                 scheduler=scheduler,
                 vae=vae,
