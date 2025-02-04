@@ -3,7 +3,7 @@ import os
 import numpy as np  # type: ignore
 import torch  # type: ignore
 from diffusers import (  # type: ignore
-    AutoencoderKL,
+    AutoencoderTiny,
     BitsAndBytesConfig as DiffusersBitsAndBytesConfig,
     FlowMatchEulerDiscreteScheduler,
     FluxFillPipeline,
@@ -214,7 +214,7 @@ class FluxFillPipelineNode:
         scheduler = FlowMatchEulerDiscreteScheduler()
 
         if diffusers_config:
-            vae = AutoencoderKL.from_pretrained(
+            vae = AutoencoderTiny.from_pretrained(
                 "madebyollin/taef1",
                 cache_dir=vae_dir,
                 torch_dtype=dtype,
@@ -227,12 +227,10 @@ class FluxFillPipelineNode:
                 tokenizer=tokenizer,
                 text_encoder_2=text_encoder_2,
                 tokenizer_2=tokenizer_2,
-                transformer=transformer,
-                quantization_config=diffusers_config,
-                device_map="balanced",
+                transformer=transformer
             )
         else:
-            vae = AutoencoderKL.from_pretrained(
+            vae = AutoencoderTiny.from_pretrained(
                 "madebyollin/taef1", cache_dir=vae_dir, torch_dtype=dtype
             )
             pipeline = FluxFillPipeline(
@@ -243,9 +241,10 @@ class FluxFillPipelineNode:
                 text_encoder_2=text_encoder_2,
                 tokenizer_2=tokenizer_2,
                 transformer=transformer,
-            ).to(device)
-            pipeline.enable_model_cpu_offload()
-            pipeline.transformer.to(dtype)
+            )
+        pipeline.to(device)
+        pipeline.enable_model_cpu_offload()
+        pipeline.transformer.to(dtype)
 
         return (pipeline,)
 
