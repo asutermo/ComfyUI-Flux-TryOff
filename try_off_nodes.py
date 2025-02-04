@@ -3,11 +3,11 @@ import os
 import numpy as np
 import torch
 from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig
-from diffusers import FluxFillPipeline, FluxTransformer2DModel
+from diffusers import FluxFillPipeline, FluxTransformer2DModel, FlowMatchEulerDiscreteScheduler
 from diffusers.utils import load_image
 from PIL import Image
 from torchvision import transforms
-from transformers import BitsAndBytesConfig as TransformersBitsAndBytesConfig
+from transformers import T5EncoderModel, CLIPTextModel, CLIPTokenizer, T5TokenizerFast, BitsAndBytesConfig as TransformersBitsAndBytesConfig
 
 device_list = ["cuda", "cpu"]
 node_dir = os.path.dirname(os.path.abspath(__file__))
@@ -116,6 +116,35 @@ class TryOffFluxFillModelNode:
 
             pipeline.enable_model_cpu_offload()
             pipeline.transformer.to(dtype)
+
+        return (pipeline,)
+
+
+class FluxFillPipelineNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "transformer": ("MODEL",),
+                "vae": ("VAE",),
+                "device": (device_list,),
+            }
+        }
+
+    CATEGORY = "Models"
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_pipeline"
+
+    def load_pipeline(self, transformer, vae, device):
+        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype)
+        tokenizer_2 = T5TokenizerFast.from_pretrained("XLabs-AI/xflux_text_encoders", torch_dtype=dtype)
+        text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype)
+        text_encoder_2 = T5EncoderModel.from_pretrained("XLabs-AI/xflux_text_encoders", torch_dtype=dtype)
+
+        pipeline = FluxFillPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, text_encoder_2=text_encoder_2, tokenizer_2=tokenizer_2, transformer=transformer).to(device)
+
+        pipeline.enable_model_cpu_offload()
+        pipeline.transformer.to(dtype)
 
         return (pipeline,)
 
