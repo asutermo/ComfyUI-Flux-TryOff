@@ -5,17 +5,24 @@ There's a sample workflow in [Workflow](https://github.com/asutermo/ComfyUI-Flux
 
 Please note, that this was tested with a 4080, and it's quite slow. You'll want a 4090 or better for performant execution as of right now.
 
-This uses diffusers>=0.32.0 (soon to be 0.32.2).
+This uses diffusers>=0.32.2 but you no longer need to approve on the Hugging Face site or use the Flux.1 Dev Model
 
 ```diff
 - This is presently incompatible with Flux fp8 single file.
-- Please follow the instructions below and use the HuggingFace FLUX.1 dev process below.
-- I'm working on alternatives to this
 ```
 
 After heavy experimenting with Try-on, it's nice to have a [Try-Off, xiaozaa/cat-tryoff-flux](https://huggingface.co/xiaozaa/cat-tryoff-flux) model to work with.
+All models will download automatically unless you use the legacy 'FluxFill Model Loader'. The quantized versions will work on lower end GPUs but this has not been verified for multi-gpu runs.
 
-The cat-try-off-flux model will download automatically. The Flux.1-dev model requires some effort.
+![Quantized Sample](./quantized_sample_4bit.png)
+
+## TODO
+
+- Multi-gpu testing
+- Optimize, optimize, optimize.
+- TryOn
+
+## Legacy (<= v1.1)
 
 1. Go to huggingface
 2. Go to your settings and generate a 'write' token
@@ -50,16 +57,3 @@ And run
 cd ../..
 python ./main.py
 ```
-
-Quantized. 8Bit. Please note, it was definitely slower to generate.
-4 Bit and mixed are untested.
-
-![Quantized Sample](./quantized_sample.png)
-
-![Sample](./sample.png)
-
-## TODO
-
-- Multi-gpu testing
-- Optimize, optimize, optimize.
-- TryOn

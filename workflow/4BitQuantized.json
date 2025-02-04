@@ -1,0 +1,488 @@
+{
+  "last_node_id": 9,
+  "last_link_id": 10,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        5264.49462890625,
+        -2130.617431640625
+      ],
+      "size": [
+        315,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1,
+            5
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Model Image",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "00008_00.jpg",
+        "image"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "LayerMask: SegformerB2ClothesUltra",
+      "pos": [
+        5680.80224609375,
+        -2162.238525390625
+      ],
+      "size": [
+        466.1999816894531,
+        630
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            10
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            6
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LayerMask: SegformerB2ClothesUltra"
+      },
+      "widgets_values": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        "VITMatte",
+        12,
+        6,
+        0.15,
+        0.99,
+        true,
+        "cuda",
+        2
+      ],
+      "color": "rgba(27, 80, 119, 0.7)"
+    },
+    {
+      "id": 3,
+      "type": "TryOffModelNode",
+      "pos": [
+        5405.20458984375,
+        -1409.8187255859375
+      ],
+      "size": [
+        344.3999938964844,
+        106
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "transformers_config",
+          "type": "transformers_config",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffModelNode"
+      },
+      "widgets_values": [
+        "xiaozaa/cat-tryoff-flux",
+        "cuda"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "TryOffQuantizerNode",
+      "pos": [
+        5267.84765625,
+        -1247.4744873046875
+      ],
+      "size": [
+        478.8000183105469,
+        78
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "transformers_config",
+          "type": "transformers_config",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "diffusers_config",
+          "type": "diffusers_config",
+          "links": [
+            4
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffQuantizerNode"
+      },
+      "widgets_values": [
+        "4Bit"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "TryOffFluxFillPipelineNode",
+      "pos": [
+        5836.4052734375,
+        -1417.2655029296875
+      ],
+      "size": [
+        579.5999755859375,
+        98
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "transformer",
+          "type": "MODEL",
+          "link": 2
+        },
+        {
+          "name": "transformers_config",
+          "type": "transformers_config",
+          "link": 3,
+          "shape": 7
+        },
+        {
+          "name": "diffusers_config",
+          "type": "diffusers_config",
+          "link": 4,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            7
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffFluxFillPipelineNode"
+      },
+      "widgets_values": [
+        "cuda"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "TryOffRunNode",
+      "pos": [
+        6491.84326171875,
+        -1659.03857421875
+      ],
+      "size": [
+        529.199951171875,
+        284
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_in",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "mask_in",
+          "type": "MASK",
+          "link": 6
+        },
+        {
+          "name": "pipe",
+          "type": "MODEL",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "garment_image",
+          "type": "IMAGE",
+          "links": [
+            9
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "tryoff_image",
+          "type": "IMAGE",
+          "links": [
+            8
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffRunNode"
+      },
+      "widgets_values": [
+        576,
+        768,
+        20,
+        30,
+        1706,
+        "randomize",
+        "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; [IMAGE1] Detailed product shot of clothing [IMAGE2] The same clothing is worn by a model in a lifestyle setting."
+      ]
+    },
+    {
+      "id": 7,
+      "type": "PreviewImage",
+      "pos": [
+        7163.263671875,
+        -1420.52783203125
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 8
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 8,
+      "type": "PreviewImage",
+      "pos": [
+        7330.5322265625,
+        -1674.12890625
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 9
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 9,
+      "type": "PreviewImage",
+      "pos": [
+        7042.759765625,
+        -2103.98974609375
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      3,
+      0,
+      5,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      4,
+      0,
+      5,
+      1,
+      "transformers_config"
+    ],
+    [
+      4,
+      4,
+      1,
+      5,
+      2,
+      "diffusers_config"
+    ],
+    [
+      5,
+      1,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      2,
+      1,
+      6,
+      1,
+      "MASK"
+    ],
+    [
+      7,
+      5,
+      0,
+      6,
+      2,
+      "MODEL"
+    ],
+    [
+      8,
+      6,
+      1,
+      7,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      6,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      2,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.5131581182307069,
+      "offset": {
+        "0": -4017.7021484375,
+        "1": 2101.792724609375
+      }
+    },
+    "node_versions": {
+      "comfy-core": "0.3.13",
+      "comfyui_layerstyle": "84d357ad826731a931c305bf11a1101b8ac2976c",
+      "ComfyUI-Flux-TryOff": "febe4636ec44fc7a2f39876d465d61e246fb6aaf"
+    },
+    "ue_links": [],
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0
+  },
+  "version": 0.4
+}
