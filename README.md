@@ -58,11 +58,9 @@ Quantized. 8Bit. Please note, it was definitely slower to generate.
 
 ![Sample](./sample.png)
 
-
 ## TODO
 
 - Multi-gpu testing
 - Optimize, optimize, optimize.
-- Allow additional models
 - Formatting/consistency
 - TryOn

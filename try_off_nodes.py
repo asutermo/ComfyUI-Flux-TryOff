@@ -1,13 +1,22 @@
 import os
 
-import numpy as np
-import torch
-from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig
-from diffusers import FluxFillPipeline, FluxTransformer2DModel, FlowMatchEulerDiscreteScheduler
-from diffusers.utils import load_image
+import numpy as np  # type: ignore
+import torch  # type: ignore
+from diffusers import (  # type: ignore
+    BitsAndBytesConfig as DiffusersBitsAndBytesConfig,
+    FlowMatchEulerDiscreteScheduler,
+    FluxFillPipeline,
+    FluxTransformer2DModel,
+)
 from PIL import Image
-from torchvision import transforms
-from transformers import T5EncoderModel, CLIPTextModel, CLIPTokenizer, T5TokenizerFast, BitsAndBytesConfig as TransformersBitsAndBytesConfig
+from torchvision import transforms  # type: ignore
+from transformers import (  # type: ignore
+    BitsAndBytesConfig as TransformersBitsAndBytesConfig,
+    CLIPTextModel,
+    CLIPTokenizer,
+    T5EncoderModel,
+    T5TokenizerFast,
+)
 
 device_list = ["cuda", "cpu"]
 node_dir = os.path.dirname(os.path.abspath(__file__))
@@ -71,7 +80,10 @@ class TryOffModelNode:
     def load_model(self, model_name, device, transformers_config=None):
         if transformers_config:
             model = FluxTransformer2DModel.from_pretrained(
-                model_name, torch_dtype=dtype, cache_dir=checkpoints_dir, quantization_config=transformers_config
+                model_name,
+                torch_dtype=dtype,
+                cache_dir=checkpoints_dir,
+                quantization_config=transformers_config,
             )
         else:
             model = FluxTransformer2DModel.from_pretrained(
@@ -130,31 +142,90 @@ class FluxFillPipelineNode:
                 "vae": ("VAE",),
                 "device": (device_list,),
             },
-            "optional": {"transformers_config": ("transformers_config",), "diffusers_config": ("diffusers_config",)},
+            "optional": {
+                "transformers_config": ("transformers_config",),
+                "diffusers_config": ("diffusers_config",),
+            },
         }
 
     CATEGORY = "Models"
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_pipeline"
 
-    def load_pipeline(self, transformer, vae, device, transformers_config=None, diffusers_config=None):
+    def load_pipeline(
+        self, transformer, vae, device, transformers_config=None, diffusers_config=None
+    ):
         if transformers_config:
-            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", cache_dir=encoders_dir, torch_dtype=dtype, quantization_config=transformers_config)
-            tokenizer_2 = T5TokenizerFast.from_pretrained("XLabs-AI/xflux_text_encoders", cache_dir=encoders_dir, torch_dtype=dtype, quantization_config=transformers_config)
-            text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", cache_dir=encoders_dir, torch_dtype=dtype, quantization_config=transformers_config)
-            text_encoder_2 = T5EncoderModel.from_pretrained("XLabs-AI/xflux_text_encoders", cache_dir=encoders_dir, torch_dtype=dtype, quantization_config=transformers_config)
+            tokenizer = CLIPTokenizer.from_pretrained(
+                "openai/clip-vit-large-patch14",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+                quantization_config=transformers_config,
+            )
+            tokenizer_2 = T5TokenizerFast.from_pretrained(
+                "XLabs-AI/xflux_text_encoders",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+                quantization_config=transformers_config,
+            )
+            text_encoder = CLIPTextModel.from_pretrained(
+                "openai/clip-vit-large-patch14",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+                quantization_config=transformers_config,
+            )
+            text_encoder_2 = T5EncoderModel.from_pretrained(
+                "XLabs-AI/xflux_text_encoders",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+                quantization_config=transformers_config,
+            )
         else:
-            tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", cache_dir=encoders_dir, torch_dtype=dtype)
-            tokenizer_2 = T5TokenizerFast.from_pretrained("XLabs-AI/xflux_text_encoders", cache_dir=encoders_dir, torch_dtype=dtype)
-            text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", cache_dir=encoders_dir, torch_dtype=dtype)
-            text_encoder_2 = T5EncoderModel.from_pretrained("XLabs-AI/xflux_text_encoders", cache_dir=encoders_dir, torch_dtype=dtype)
+            tokenizer = CLIPTokenizer.from_pretrained(
+                "openai/clip-vit-large-patch14",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+            )
+            tokenizer_2 = T5TokenizerFast.from_pretrained(
+                "XLabs-AI/xflux_text_encoders",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+            )
+            text_encoder = CLIPTextModel.from_pretrained(
+                "openai/clip-vit-large-patch14",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+            )
+            text_encoder_2 = T5EncoderModel.from_pretrained(
+                "XLabs-AI/xflux_text_encoders",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+            )
 
         scheduler = FlowMatchEulerDiscreteScheduler()
 
         if diffusers_config:
-            pipeline = FluxFillPipeline(scheduler=scheduler, vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, text_encoder_2=text_encoder_2, tokenizer_2=tokenizer_2, transformer=transformer, quantization_config=diffusers_config, device_map="balanced")
+            pipeline = FluxFillPipeline(
+                scheduler=scheduler,
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                text_encoder_2=text_encoder_2,
+                tokenizer_2=tokenizer_2,
+                transformer=transformer,
+                quantization_config=diffusers_config,
+                device_map="balanced",
+            )
         else:
-            pipeline = FluxFillPipeline(scheduler=scheduler, vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, text_encoder_2=text_encoder_2, tokenizer_2=tokenizer_2, transformer=transformer).to(device)
+            pipeline = FluxFillPipeline(
+                scheduler=scheduler,
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                text_encoder_2=text_encoder_2,
+                tokenizer_2=tokenizer_2,
+                transformer=transformer,
+            ).to(device)
             pipeline.enable_model_cpu_offload()
             pipeline.transformer.to(dtype)
 
