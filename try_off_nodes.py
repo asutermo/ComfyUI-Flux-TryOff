@@ -14,6 +14,7 @@ node_dir = os.path.dirname(os.path.abspath(__file__))
 comfy_dir = os.path.abspath(os.path.join(node_dir, "..", ".."))
 models_dir = os.path.abspath(os.path.join(comfy_dir, "models"))
 checkpoints_dir = os.path.abspath(os.path.join(models_dir, "checkpoints"))
+encoders_dir = os.path.abspath(os.path.join(models_dir, "text_encoders"))
 
 dtype = torch.bfloat16
 
@@ -136,10 +137,10 @@ class FluxFillPipelineNode:
     FUNCTION = "load_pipeline"
 
     def load_pipeline(self, transformer, vae, device):
-        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype)
-        tokenizer_2 = T5TokenizerFast.from_pretrained("XLabs-AI/xflux_text_encoders", torch_dtype=dtype)
-        text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype)
-        text_encoder_2 = T5EncoderModel.from_pretrained("XLabs-AI/xflux_text_encoders", torch_dtype=dtype)
+        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", cache_dir=encoders_dir, torch_dtype=dtype)
+        tokenizer_2 = T5TokenizerFast.from_pretrained("XLabs-AI/xflux_text_encoders", cache_dir=encoders_dir, torch_dtype=dtype)
+        text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", cache_dir=encoders_dir, torch_dtype=dtype)
+        text_encoder_2 = T5EncoderModel.from_pretrained("XLabs-AI/xflux_text_encoders", cache_dir=encoders_dir, torch_dtype=dtype)
 
         pipeline = FluxFillPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, text_encoder_2=text_encoder_2, tokenizer_2=tokenizer_2, transformer=transformer).to(device)
 
@@ -178,7 +179,6 @@ class TryOffRunNode:
                         "[IMAGE2] The same clothing is worn by a model in a lifestyle setting.",
                     },
                 ),
-                "device": (device_list,),
             }
         }
 
@@ -198,7 +198,6 @@ class TryOffRunNode:
         guidance_scale,
         seed,
         prompt,
-        device,
     ):
 
         # Preprocessing transforms
