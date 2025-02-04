@@ -71,11 +71,11 @@ class TryOffModelNode:
     def load_model(self, model_name, device, transformers_config=None):
         if transformers_config:
             model = FluxTransformer2DModel.from_pretrained(
-                model_name, torch_dtype=dtype, quantization_config=transformers_config
+                model_name, torch_dtype=dtype, cache_dir=checkpoints_dir, quantization_config=transformers_config
             )
         else:
             model = FluxTransformer2DModel.from_pretrained(
-                model_name, torch_dtype=dtype
+                model_name, cache_dir=checkpoints_dir, torch_dtype=dtype
             ).to(device)
         return (model,)
 
