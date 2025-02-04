@@ -21,6 +21,7 @@ All models will download automatically unless you use the legacy 'FluxFill Model
 - Multi-gpu testing
 - Optimize, optimize, optimize.
 - TryOn
+- Custom VAE, Text Encoders, etc.
 
 ## Legacy (<= v1.1)
 
