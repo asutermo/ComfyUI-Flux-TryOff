@@ -14,6 +14,8 @@ This uses diffusers>=0.32.2 but you no longer need to approve on the Hugging Fac
 After heavy experimenting with Try-on, it's nice to have a [Try-Off, xiaozaa/cat-tryoff-flux](https://huggingface.co/xiaozaa/cat-tryoff-flux) model to work with.
 All models will download automatically unless you use the legacy 'FluxFill Model Loader'. The quantized versions will work on lower end GPUs but this has not been verified for multi-gpu runs.
 
+To use, use the 8BitQuantized.json. You can remove the Quanitization step and it should still work.
+
 ![Quantized Sample](./quantized_sample_4bit.png)
 
 ## TODO
