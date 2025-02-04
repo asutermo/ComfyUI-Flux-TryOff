@@ -18,6 +18,14 @@ from transformers import (  # type: ignore
     T5TokenizerFast,
 )
 
+__all__ = [
+    "TryOffModelNode",
+    "TryOffFluxFillModelNode",
+    "TryOffRunNode",
+    "TryOffQuantizerNode",
+    "FluxFillPipelineNode",
+]
+
 device_list = ["cuda", "cpu"]
 node_dir = os.path.dirname(os.path.abspath(__file__))
 comfy_dir = os.path.abspath(os.path.join(node_dir, "..", ".."))
@@ -32,7 +40,7 @@ class TryOffQuantizerNode:
     """Enable quantization to load heavier models"""
 
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls):  # noqa: N802
         return {
             "required": {
                 "quantizer": (["None", "8Bit", "4Bit"],),
@@ -64,7 +72,7 @@ class TryOffQuantizerNode:
 # TryOffModel Node
 class TryOffModelNode:
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls):  # noqa: N802
         return {
             "required": {
                 "model_name": (["xiaozaa/cat-tryoff-flux"],),
@@ -95,7 +103,7 @@ class TryOffModelNode:
 # FluxFillModel Node
 class TryOffFluxFillModelNode:
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls):  # noqa: N802
         return {
             "required": {
                 "transformer": ("MODEL",),
@@ -135,7 +143,7 @@ class TryOffFluxFillModelNode:
 
 class FluxFillPipelineNode:
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls):  # noqa: N802
         return {
             "required": {
                 "transformer": ("MODEL",),
@@ -235,7 +243,7 @@ class FluxFillPipelineNode:
 # TryOffRun Node
 class TryOffRunNode:
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls):  # noqa: N802
         return {
             "required": {
                 "image_in": ("IMAGE",),

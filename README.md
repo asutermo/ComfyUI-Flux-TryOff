@@ -62,5 +62,4 @@ Quantized. 8Bit. Please note, it was definitely slower to generate.
 
 - Multi-gpu testing
 - Optimize, optimize, optimize.
-- Formatting/consistency
 - TryOn
