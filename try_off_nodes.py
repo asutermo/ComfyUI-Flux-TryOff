@@ -249,6 +249,142 @@ class FluxFillPipelineNode:
         return (pipeline,)
 
 
+# TryOffModel Node
+class TryOnOffModelNode:
+    @classmethod
+    def INPUT_TYPES(cls):  # noqa: N802
+        return {
+            "required": {
+                "model_name": (["xiaozaa/cat-tryoff-flux", "xiaozaa/catvton-flux-beta", "xiaozaa/catvton-flux-alpha"],),
+                "device": (device_list,),
+            },
+            "optional": {"transformers_config": ("transformers_config",)},
+        }
+
+    CATEGORY = "Models"
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_model"
+
+    def load_model(self, model_name, device, transformers_config=None):
+        if transformers_config:
+            model = FluxTransformer2DModel.from_pretrained(
+                model_name,
+                torch_dtype=dtype,
+                cache_dir=checkpoints_dir,
+                quantization_config=transformers_config,
+            )
+        else:
+            model = FluxTransformer2DModel.from_pretrained(
+                model_name, cache_dir=checkpoints_dir, torch_dtype=dtype
+            ).to(device)
+        return (model,)
+    
+class FluxFillPipelineNode2:
+    @classmethod
+    def INPUT_TYPES(cls):  # noqa: N802
+        return {
+            "required": {
+                "transformer": ("MODEL",),
+                "device": (device_list,),
+            },
+            "optional": {
+                "transformers_config": ("transformers_config",),
+                "diffusers_config": ("diffusers_config",),
+            },
+        }
+
+    CATEGORY = "Models"
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_pipeline"
+
+    def load_pipeline(
+        self, transformer, device, transformers_config=None, diffusers_config=None
+    ):
+        if transformers_config:
+            tokenizer = CLIPTokenizer.from_pretrained(
+                "openai/clip-vit-large-patch14",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+                quantization_config=transformers_config,
+            )
+            tokenizer_2 = T5TokenizerFast.from_pretrained(
+                "XLabs-AI/xflux_text_encoders",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+                quantization_config=transformers_config,
+            )
+            text_encoder = CLIPTextModel.from_pretrained(
+                "openai/clip-vit-large-patch14",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+                quantization_config=transformers_config,
+            )
+            text_encoder_2 = T5EncoderModel.from_pretrained(
+                "XLabs-AI/xflux_text_encoders",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+                quantization_config=transformers_config,
+            )
+        else:
+            tokenizer = CLIPTokenizer.from_pretrained(
+                "openai/clip-vit-large-patch14",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+            )
+            tokenizer_2 = T5TokenizerFast.from_pretrained(
+                "XLabs-AI/xflux_text_encoders",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+            )
+            text_encoder = CLIPTextModel.from_pretrained(
+                "openai/clip-vit-large-patch14",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+            )
+            text_encoder_2 = T5EncoderModel.from_pretrained(
+                "XLabs-AI/xflux_text_encoders",
+                cache_dir=encoders_dir,
+                torch_dtype=dtype,
+            )
+
+        scheduler = FlowMatchEulerDiscreteScheduler()
+
+        if diffusers_config:
+            vae = AutoencoderTiny.from_pretrained(
+                "madebyollin/taef1",
+                cache_dir=vae_dir,
+                torch_dtype=dtype,
+                quantization_config=diffusers_config,
+            )
+            pipeline = FluxFillPipeline(
+                scheduler=scheduler,
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                text_encoder_2=text_encoder_2,
+                tokenizer_2=tokenizer_2,
+                transformer=transformer
+            )
+        else:
+            vae = AutoencoderTiny.from_pretrained(
+                "madebyollin/taef1", cache_dir=vae_dir, torch_dtype=dtype
+            )
+            pipeline = FluxFillPipeline(
+                scheduler=scheduler,
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                text_encoder_2=text_encoder_2,
+                tokenizer_2=tokenizer_2,
+                transformer=transformer,
+            )
+        pipeline.to(device)
+        pipeline.enable_model_cpu_offload()
+        pipeline.transformer.to(dtype)
+
+        return (pipeline,)
+
+
 # TryOffRun Node
 class TryOffRunNode:
     @classmethod
