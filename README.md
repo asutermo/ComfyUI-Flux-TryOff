@@ -20,3 +20,4 @@ To use, use the 8BitQuantized.json. You can remove the Quanitization step and it
 - Optimize, optimize, optimize.
 - TryOn
 - Custom VAE, Text Encoders, etc.
+- Use LoRA

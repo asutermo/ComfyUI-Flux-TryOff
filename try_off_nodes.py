@@ -279,18 +279,20 @@ class TryOnOffModelNode:
             ).to(device)
         return (model,)
     
+
 class FluxFillPipelineNode2:
     @classmethod
     def INPUT_TYPES(cls):  # noqa: N802
         return {
             "required": {
                 "transformer": ("MODEL",),
+                "vae": ("MODEL",), 
+                "text_encoder": ("MODEL",),
+                "tokenizer": ("TOKENIZER",),
+                "text_encoder_2": ("MODEL",),
+                "tokenizer_2": ("TOKENIZER",),
                 "device": (device_list,),
-            },
-            "optional": {
-                "transformers_config": ("transformers_config",),
-                "diffusers_config": ("diffusers_config",),
-            },
+            }
         }
 
     CATEGORY = "Models"
@@ -298,91 +300,35 @@ class FluxFillPipelineNode2:
     FUNCTION = "load_pipeline"
 
     def load_pipeline(
-        self, transformer, device, transformers_config=None, diffusers_config=None
+        self,
+        transformer,
+        vae,
+        text_encoder,
+        tokenizer,
+        text_encoder_2,
+        tokenizer_2,
+        device,
     ):
-        if transformers_config:
-            tokenizer = CLIPTokenizer.from_pretrained(
-                "openai/clip-vit-large-patch14",
-                cache_dir=encoders_dir,
-                torch_dtype=dtype,
-                quantization_config=transformers_config,
-            )
-            tokenizer_2 = T5TokenizerFast.from_pretrained(
-                "XLabs-AI/xflux_text_encoders",
-                cache_dir=encoders_dir,
-                torch_dtype=dtype,
-                quantization_config=transformers_config,
-            )
-            text_encoder = CLIPTextModel.from_pretrained(
-                "openai/clip-vit-large-patch14",
-                cache_dir=encoders_dir,
-                torch_dtype=dtype,
-                quantization_config=transformers_config,
-            )
-            text_encoder_2 = T5EncoderModel.from_pretrained(
-                "XLabs-AI/xflux_text_encoders",
-                cache_dir=encoders_dir,
-                torch_dtype=dtype,
-                quantization_config=transformers_config,
-            )
-        else:
-            tokenizer = CLIPTokenizer.from_pretrained(
-                "openai/clip-vit-large-patch14",
-                cache_dir=encoders_dir,
-                torch_dtype=dtype,
-            )
-            tokenizer_2 = T5TokenizerFast.from_pretrained(
-                "XLabs-AI/xflux_text_encoders",
-                cache_dir=encoders_dir,
-                torch_dtype=dtype,
-            )
-            text_encoder = CLIPTextModel.from_pretrained(
-                "openai/clip-vit-large-patch14",
-                cache_dir=encoders_dir,
-                torch_dtype=dtype,
-            )
-            text_encoder_2 = T5EncoderModel.from_pretrained(
-                "XLabs-AI/xflux_text_encoders",
-                cache_dir=encoders_dir,
-                torch_dtype=dtype,
-            )
-
+        # Initialize scheduler independently (assuming this is still needed)
         scheduler = FlowMatchEulerDiscreteScheduler()
 
-        if diffusers_config:
-            vae = AutoencoderTiny.from_pretrained(
-                "madebyollin/taef1",
-                cache_dir=vae_dir,
-                torch_dtype=dtype,
-                quantization_config=diffusers_config,
-            )
-            pipeline = FluxFillPipeline(
-                scheduler=scheduler,
-                vae=vae,
-                text_encoder=text_encoder,
-                tokenizer=tokenizer,
-                text_encoder_2=text_encoder_2,
-                tokenizer_2=tokenizer_2,
-                transformer=transformer
-            )
-        else:
-            vae = AutoencoderTiny.from_pretrained(
-                "madebyollin/taef1", cache_dir=vae_dir, torch_dtype=dtype
-            )
-            pipeline = FluxFillPipeline(
-                scheduler=scheduler,
-                vae=vae,
-                text_encoder=text_encoder,
-                tokenizer=tokenizer,
-                text_encoder_2=text_encoder_2,
-                tokenizer_2=tokenizer_2,
-                transformer=transformer,
-            )
+        # Construct the FluxFillPipeline using the supplied components
+        pipeline = FluxFillPipeline(
+            scheduler=scheduler,
+            vae=vae,
+            text_encoder=text_encoder,
+            tokenizer=tokenizer,
+            text_encoder_2=text_encoder_2,
+            tokenizer_2=tokenizer_2,
+            transformer=transformer,
+        )
+
         pipeline.to(device)
         pipeline.enable_model_cpu_offload()
         pipeline.transformer.to(dtype)
 
         return (pipeline,)
+
 
 
 # TryOffRun Node
