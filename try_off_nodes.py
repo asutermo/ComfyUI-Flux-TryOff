@@ -227,7 +227,7 @@ class FluxFillPipelineNode:
                 tokenizer=tokenizer,
                 text_encoder_2=text_encoder_2,
                 tokenizer_2=tokenizer_2,
-                transformer=transformer
+                transformer=transformer,
             )
         else:
             vae = AutoencoderTiny.from_pretrained(
@@ -255,7 +255,13 @@ class TryOnOffModelNode:
     def INPUT_TYPES(cls):  # noqa: N802
         return {
             "required": {
-                "model_name": (["xiaozaa/cat-tryoff-flux", "xiaozaa/catvton-flux-beta", "xiaozaa/catvton-flux-alpha"],),
+                "model_name": (
+                    [
+                        "xiaozaa/cat-tryoff-flux",
+                        "xiaozaa/catvton-flux-beta",
+                        "xiaozaa/catvton-flux-alpha",
+                    ],
+                ),
                 "device": (device_list,),
             },
             "optional": {"transformers_config": ("transformers_config",)},
@@ -278,7 +284,7 @@ class TryOnOffModelNode:
                 model_name, cache_dir=checkpoints_dir, torch_dtype=dtype
             ).to(device)
         return (model,)
-    
+
 
 class FluxFillPipelineNode2:
     @classmethod
@@ -286,7 +292,7 @@ class FluxFillPipelineNode2:
         return {
             "required": {
                 "transformer": ("MODEL",),
-                "vae": ("MODEL",), 
+                "vae": ("MODEL",),
                 "text_encoder": ("MODEL",),
                 "tokenizer": ("TOKENIZER",),
                 "text_encoder_2": ("MODEL",),
@@ -330,7 +336,6 @@ class FluxFillPipelineNode2:
         return (pipeline,)
 
 
-
 # TryOffRun Node
 class TryOffRunNode:
     @classmethod
@@ -360,7 +365,10 @@ class TryOffRunNode:
                         "[IMAGE2] The same clothing is worn by a model in a lifestyle setting.",
                     },
                 ),
-            }
+            },
+            "optional": {
+                "garment_in": ("IMAGE",),
+            },
         }
 
     RETURN_TYPES = ("IMAGE", "IMAGE")
@@ -379,6 +387,7 @@ class TryOffRunNode:
         guidance_scale,
         seed,
         prompt,
+        garment_in=None,
     ):
 
         # Preprocessing transforms
@@ -403,16 +412,29 @@ class TryOffRunNode:
         image = convert_image(image_in).resize((width, height))
         mask = convert_image(mask_in).resize((width, height))
 
-        image_tensor = transform(image)
-        mask_tensor = mask_transform(mask)[:1]  # Use only the first channel
+        if garment_in:
+            garment = convert_image(garment_in).resize((width, height))
+            try_on = True
+        else:
+            try_on = False
 
-        garment_tensor = torch.zeros_like(image_tensor)
-        image_tensor = image_tensor * mask_tensor
+        image_tensor = transform(image)
+        mask_tensor = mask_transform(mask)[:1]  # Take only first channel
+
+        if try_on:
+            garment_tensor = transform(garment)
+        else:
+            garment_tensor = torch.zeros_like(image_tensor)
+            image_tensor = image_tensor * mask_tensor
 
         # Concatenate inputs for FluxFillPipeline
         inpaint_image = torch.cat([garment_tensor, image_tensor], dim=2)
         garment_mask = torch.zeros_like(mask_tensor)
-        extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
+
+        if try_on:
+            extended_mask = torch.cat([garment_mask, mask_tensor], dim=2)
+        else:
+            extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
 
         # Run pipeline
         result = pipe(

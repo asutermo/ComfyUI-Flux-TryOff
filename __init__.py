@@ -1,11 +1,11 @@
 from .try_off_nodes import (  # noqa
     FluxFillPipelineNode,
+    FluxFillPipelineNode2,
     TryOffFluxFillModelNode,
     TryOffModelNode,
     TryOffQuantizerNode,
     TryOffRunNode,
     TryOnOffModelNode,
-    FluxFillPipelineNode2
 )
 
 # Node Registrations
@@ -16,7 +16,7 @@ NODE_CLASS_MAPPINGS = {
     "TryOffQuantizerNode": TryOffQuantizerNode,
     "TryOffFluxFillPipelineNode": FluxFillPipelineNode,
     "TryOnOffModelNode": TryOnOffModelNode,
-    "TryOffFluxFillPipelineNode2": FluxFillPipelineNode2
+    "TryOffFluxFillPipelineNode2": FluxFillPipelineNode2,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
