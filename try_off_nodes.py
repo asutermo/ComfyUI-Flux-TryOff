@@ -1,13 +1,10 @@
-from dataclasses import dataclass
 import os
-
-import numpy as np  # type: ignore
-import torch  # type: ignore
-
-from comfy import model_management
+from dataclasses import dataclass
 
 import folder_paths
-
+import numpy as np  # type: ignore
+import torch  # type: ignore
+from comfy import model_management
 from diffusers import (  # type: ignore
     AutoencoderKL,
     AutoencoderTiny,
@@ -16,9 +13,6 @@ from diffusers import (  # type: ignore
     FluxFillPipeline,
     FluxTransformer2DModel,
 )
-#from diffusers.scripts import convert_diffusers_to_original_stable_diffusion
-#from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
-
 from PIL import Image
 from torchvision import transforms  # type: ignore
 from transformers import (  # type: ignore
@@ -28,6 +22,10 @@ from transformers import (  # type: ignore
     T5EncoderModel,
     T5TokenizerFast,
 )
+
+# from diffusers.scripts import convert_diffusers_to_original_stable_diffusion
+# from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
+
 
 __all__ = [
     "TryOffModelNode",
@@ -111,7 +109,6 @@ class TryOffModelNode:
                 model_name, cache_dir=checkpoints_dir, torch_dtype=dtype
             ).to(device)
         return (model,)
-
 
 
 # FluxFillModel Node
@@ -299,6 +296,7 @@ class TryOnOffModelNode:
             ).to(device)
 
         return (model,)
+
 
 # TryOffRun Node
 class TryOnOffRunNode:
@@ -495,14 +493,15 @@ class TryOnOffRunNodeAdvanced:
         text_encoder_2 = T5EncoderModel.from_pretrained(os.path.dirname(t5_encoder))
         scheduler = FlowMatchEulerDiscreteScheduler()
         vae = AutoencoderKL.from_pretrained(os.path.dirname(vae))
-        pipe = FluxFillPipeline(                
-                scheduler=scheduler,
-                vae=vae,
-                text_encoder=text_encoder,
-                tokenizer=tokenizer,
-                text_encoder_2=text_encoder_2,
-                tokenizer_2=tokenizer_2,
-                transformer=flux_catvton_model)
+        pipe = FluxFillPipeline(
+            scheduler=scheduler,
+            vae=vae,
+            text_encoder=text_encoder,
+            tokenizer=tokenizer,
+            text_encoder_2=text_encoder_2,
+            tokenizer_2=tokenizer_2,
+            transformer=flux_catvton_model,
+        )
         pipe.enable_model_cpu_offload()
         pipe.transformer.to(dtype)
 
