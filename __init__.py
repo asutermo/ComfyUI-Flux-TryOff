@@ -1,4 +1,6 @@
 from .try_off_nodes import (  # noqa
+    TryOnOffLoader,
+    TryOnOffSampler,
     FluxFillPipelineNode,
     TryOffFluxFillModelNode,
     TryOffModelNode,
@@ -17,6 +19,8 @@ NODE_CLASS_MAPPINGS = {
     "TryOnOffModelNode": TryOnOffModelNode,
     "TryOnOffRunNode": TryOnOffRunNode,
     "TryOnOffRunNodeAdvanced": TryOnOffRunNodeAdvanced,
+    "TryOnOffLoader": TryOnOffLoader,
+    "TryOnOffSampler": TryOnOffSampler,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -27,4 +31,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "TryOffFluxFillPipelineNode": "FluxFill Pipeline Loader [ComfyUI-Flux-TryOff]",
     "TryOnOffModelNode": "TryOn or TryOff Model Loader [ComfyUI-Flux-TryOff]",
     "TryOnOffRunNode (Advanced)": "Run TryOff Inference (Advanced) [ComfyUI-Flux-TryOff]",
+    "TryOnOffLoader": "Load CatVTON Model",
+    "TryOnOffSampler": "CatVTON Sampler",
 }

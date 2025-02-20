@@ -2,10 +2,13 @@ import os
 from dataclasses import dataclass
 from typing import List
 
+import comfy.utils
 import folder_paths
 import numpy as np  # type: ignore
 import torch  # type: ignore
+import torch.nn.functional as F
 from comfy import model_management
+from comfy.model_base import BaseModel
 from diffusers import (  # type: ignore
     AutoencoderKL,
     AutoencoderTiny,
@@ -47,6 +50,7 @@ clip_dir = os.path.abspath(os.path.join(models_dir, "clip_vision"))
 vae_dir = os.path.abspath(os.path.join(models_dir, "vae"))
 
 dtype = torch.bfloat16
+
 
 class TryOffQuantizerNode:
     """Enable quantization to load heavier models"""
@@ -463,8 +467,7 @@ class TryOnOffRunNodeAdvanced:
             "required": {
                 "flux_catvton_model": ("MODEL",),
                 "vae": (folder_paths.get_filename_list("vae"),),
-                "clip_l_encoder": (folder_paths.get_filename_list("text_encoders")+folder_paths.get_filename_list("clip_vision"),),
-                "t5_encoder": (folder_paths.get_filename_list("text_encoders")+folder_paths.get_filename_list("clip_vision"),),
+                "conditioning": ("CONDITIONING",),
                 "image_in": ("IMAGE",),
                 "mask_in": ("MASK",),
                 "width": ("INT", {"default": 576, "min": 128, "max": 1024, "step": 16}),
@@ -520,31 +523,28 @@ class TryOnOffRunNodeAdvanced:
     ):
         targs = {"torch_dtype": dtype}
         if transformers_config:
-            targs['quantization_config'] = transformers_config
+            targs["quantization_config"] = transformers_config
         dargs = {"torch_dtype": dtype}
         if diffusers_config:
-            dargs['quantization_config'] = diffusers_config
+            dargs["quantization_config"] = diffusers_config
 
         def get_full_path(possible_paths: List[str], file_path: str):
             for path in possible_paths:
                 full_path = os.path.join(path, file_path)
-                print(f'Trying {full_path}')
+                print(f"Trying {full_path}")
                 if os.path.exists(full_path):
-                    print(f'Using {full_path}')
+                    print(f"Using {full_path}")
                     return full_path
-            raise Exception("Model file {file_path} not found in any of the possible paths")
-        
+            raise Exception(
+                "Model file {file_path} not found in any of the possible paths"
+            )
+
         clip_encoder_path = get_full_path([encoders_dir, clip_dir], clip_l_encoder)
         t5_encoder_path = get_full_path([encoders_dir, clip_dir], t5_encoder)
         vae_path = get_full_path([vae_dir], vae)
 
         clip_tokenizer = CLIPTokenizer()
 
-        tokenizer = CLIPTokenizer.from_pretrained(clip_encoder_path, **targs)
-        tokenizer_2 = T5TokenizerFast.from_pretrained(t5_encoder_path, **targs)
-
-        text_encoder = CLIPTextModel.from_pretrained(clip_encoder_path, **targs)
-        text_encoder_2 = T5EncoderModel.from_pretrained(t5_encoder_path, **targs)
         scheduler = FlowMatchEulerDiscreteScheduler()
         vae = AutoencoderKL.from_pretrained(vae_path, **dargs)
         pipe = FluxFillPipeline(
@@ -570,4 +570,245 @@ class TryOnOffRunNodeAdvanced:
             prompt,
             garment_in,
         )
+
+
+class FluxModelWrapper(BaseModel):
+    def __init__(self, model, model_type="v1"):
+        super().__init__(model_type=model_type)
+        self.model = model
+        self.device = model_management.get_torch_device()
+        self.offload_device = model_management.unet_offload_device()
+        self.dtype = model.dtype
+
+    def forward(self, x, timesteps, context, **kwargs):
+        x = x.to(self.device, dtype=self.dtype)
+        timesteps = timesteps.to(self.device)
+        context = context.to(self.device, dtype=self.dtype)
+
+        return self.model(
+            sample=x,
+            timestep=timesteps,
+            encoder_hidden_states=context,
+            return_dict=False,
+        )[0]
+
+    def to(self, device):
+        self.device = device
+        self.model.to(device)
+        return self
+
+    def cleanup(self):
+        if self.offload_device != torch.device("cpu"):
+            self.to(self.offload_device)
+
+    @torch.no_grad()
+    def get_input_block_skip_connections(self):
+        return []
+
+
+CUSTOM_MODELS_DIR = os.path.join(folder_paths.models_dir, "catvton")
+os.makedirs(CUSTOM_MODELS_DIR, exist_ok=True)
+
+
+class TryOnOffLoader:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model_name": (
+                    [
+                        "xiaozaa/cat-tryoff-flux",
+                        "xiaozaa/catvton-flux-beta",
+                        "xiaozaa/catvton-flux-alpha",
+                    ],
+                ),
+                "precision": (["full", "half"],),
+            }
+        }
+
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_model"
+    CATEGORY = "loaders"
+
+    def load_model(self, model_name, precision):
+        cache_dir = CUSTOM_MODELS_DIR
+        dtype = torch.float16 if precision == "half" else torch.float32
+
+        # Load model using diffusers
+        print(f"Loading {model_name} from HuggingFace or cache...")
+        flux_model = FluxTransformer2DModel.from_pretrained(
+            model_name,
+            cache_dir=cache_dir,
+            torch_dtype=dtype,
+        )
+
+        # Wrap for ComfyUI compatibility
+        wrapped_model = FluxModelWrapper(flux_model)
+        return (wrapped_model,)
+
+
+class TryOnOffSampler:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model": ("MODEL",),
+                "vae": ("VAE",),
+                "clip": ("CLIP",),
+                "image": ("IMAGE",),
+                "mask": ("MASK",),
+                "width": ("INT", {"default": 576, "min": 128, "max": 1024, "step": 16}),
+                "height": (
+                    "INT",
+                    {"default": 768, "min": 128, "max": 1024, "step": 16},
+                ),
+                "num_steps": ("INT", {"default": 50, "min": 1, "max": 100}),
+                "guidance_scale": (
+                    "FLOAT",
+                    {"default": 30.0, "min": 1.0, "max": 100.0, "step": 0.5},
+                ),
+                "seed": ("INT", {"default": 42}),
+                "prompt": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; [IMAGE1] Detailed product shot of clothing [IMAGE2] The same clothing is worn by a model in a lifestyle setting.",
+                    },
+                ),
+            },
+            "optional": {
+                "garment_image": ("IMAGE",),
+            },
+        }
+
+    RETURN_TYPES = ("IMAGE", "IMAGE", "LATENT")
+    RETURN_NAMES = ("garment_result", "tryon_result", "latent")
+    FUNCTION = "sample"
+    CATEGORY = "sampling"
+
+    def prepare_image_tensor(self, image, width, height):
+        # Ensure we're working with the right dimensions
+        if len(image.shape) == 3:  # Add batch dimension if needed
+            image = image.unsqueeze(0)
             
+        # Convert from NHWC to NCHW
+        image = image.permute(0, 3, 1, 2)
+        
+        if image.shape[2:] != (height, width):
+            image = F.interpolate(image, size=(height, width), mode='bilinear')
+        
+        # Normalize to [-1, 1]
+        image = image * 2 - 1
+        return image
+
+    def prepare_mask_tensor(self, mask, width, height):
+        # Ensure mask has right dimensions
+        if len(mask.shape) == 2:  # Add batch and channel dimensions if needed
+            mask = mask.unsqueeze(0).unsqueeze(0)
+        elif len(mask.shape) == 3:  # Add batch dimension if needed
+            mask = mask.unsqueeze(0)
+            
+        # If mask is NHWC format, convert to NCHW
+        if mask.shape[3] == 1:
+            mask = mask.permute(0, 3, 1, 2)
+        
+        if mask.shape[2:] != (height, width):
+            mask = F.interpolate(mask, size=(height, width), mode='nearest')
+        
+        return mask
+
+
+    def get_conditioning(self, clip, prompt):
+        tokens = clip.tokenize(prompt)
+        cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
+        return [[cond, {"pooled_output": pooled}]]
+
+    def sample(
+        self,
+        model,
+        vae,
+        clip,
+        image,
+        mask,
+        width,
+        height,
+        num_steps,
+        guidance_scale,
+        seed,
+        prompt,
+        garment_image=None,
+    ):
+        device = model_management.get_torch_device()
+
+        # Prepare conditioning
+        positive = self.get_conditioning(clip, prompt)
+        negative = self.get_conditioning(clip, "")
+
+        # Prepare images
+        print(f"Initial image shape: {image.shape}")
+        print(f"Initial mask shape: {mask.shape}")
+
+        image_tensor = self.prepare_image_tensor(image, width, height)
+        mask_tensor = self.prepare_mask_tensor(mask, width, height)
+
+        print(f"Processed image shape: {image_tensor.shape}")
+        print(f"Processed mask shape: {mask_tensor.shape}")
+
+        if garment_image is not None:
+            garment_tensor = self.prepare_image_tensor(garment_image, width, height)
+            try_on = True
+        else:
+            garment_tensor = torch.zeros_like(image_tensor)
+            image_tensor = image_tensor * mask_tensor
+            try_on = False
+
+        # Concatenate inputs sideways
+        inpaint_image = torch.cat([garment_tensor, image_tensor], dim=3)
+        garment_mask = torch.zeros_like(mask_tensor)
+
+        if try_on:
+            extended_mask = torch.cat([garment_mask, mask_tensor], dim=3)
+        else:
+            extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=3)
+
+        # Move to appropriate device
+        inpaint_image = inpaint_image.to(device)
+        extended_mask = extended_mask.to(device)
+
+        # Encode to latent space
+        latent = vae.encode(inpaint_image)
+
+        # Set up noise
+        generator = torch.manual_seed(seed)
+        noise = torch.randn(latent.shape, generator=generator, device=device)
+
+        # Sample
+        samples = comfy.sample.sample(
+            model,
+            noise,
+            steps=num_steps,
+            cfg=guidance_scale,
+            sampler_name="euler",
+            scheduler="normal",
+            positive=positive,
+            negative=negative,
+            denoise=1.0,
+            disable_noise=False,
+        )
+
+        # Decode latents
+        decoded = vae.decode(samples)
+
+        # Split and process results
+        garment_result = decoded[:, :, :, :width]
+        tryon_result = decoded[:, :, :, width:]
+
+        # Convert to ComfyUI format [B,H,W,C]
+        garment_result = garment_result.permute(0, 2, 3, 1)
+        tryon_result = tryon_result.permute(0, 2, 3, 1)
+
+        # Normalize to [0, 1]
+        garment_result = (garment_result + 1) / 2
+        tryon_result = (tryon_result + 1) / 2
+
+        return (garment_result, tryon_result, {"samples": samples})
