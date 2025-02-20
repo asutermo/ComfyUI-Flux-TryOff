@@ -4,14 +4,18 @@ import os
 import numpy as np  # type: ignore
 import torch  # type: ignore
 
+from comfy import model_management
 
 from diffusers import (  # type: ignore
+    AutoencoderKL,
     AutoencoderTiny,
     BitsAndBytesConfig as DiffusersBitsAndBytesConfig,
     FlowMatchEulerDiscreteScheduler,
     FluxFillPipeline,
     FluxTransformer2DModel,
 )
+from diffusers.scripts import convert_diffusers_to_original_stable_diffusion
+from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
 
 from PIL import Image
 from torchvision import transforms  # type: ignore
@@ -288,15 +292,12 @@ class TryOnOffModelNode:
         else:
             model = FluxTransformer2DModel.from_pretrained(
                 model_name, cache_dir=checkpoints_dir, torch_dtype=dtype
-            )
+            ).to(device)
 
-        # Now that's quantized, convert to the state dict
-        # look at sampler
-        
         return (model,)
 
 # TryOffRun Node
-class TryOffRunNode:
+class TryOnOffRunNode:
     @classmethod
     def INPUT_TYPES(cls):  # noqa: N802
         return {
