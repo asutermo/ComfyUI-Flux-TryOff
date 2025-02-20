@@ -1,7 +1,10 @@
+from dataclasses import dataclass
 import os
 
 import numpy as np  # type: ignore
 import torch  # type: ignore
+
+
 from diffusers import (  # type: ignore
     AutoencoderTiny,
     BitsAndBytesConfig as DiffusersBitsAndBytesConfig,
@@ -9,6 +12,7 @@ from diffusers import (  # type: ignore
     FluxFillPipeline,
     FluxTransformer2DModel,
 )
+
 from PIL import Image
 from torchvision import transforms  # type: ignore
 from transformers import (  # type: ignore
@@ -26,6 +30,7 @@ __all__ = [
     "TryOffQuantizerNode",
     "FluxFillPipelineNode",
 ]
+
 
 device_list = ["cuda", "cpu"]
 node_dir = os.path.dirname(os.path.abspath(__file__))
@@ -100,6 +105,7 @@ class TryOffModelNode:
                 model_name, cache_dir=checkpoints_dir, torch_dtype=dtype
             ).to(device)
         return (model,)
+
 
 
 # FluxFillModel Node
@@ -282,59 +288,12 @@ class TryOnOffModelNode:
         else:
             model = FluxTransformer2DModel.from_pretrained(
                 model_name, cache_dir=checkpoints_dir, torch_dtype=dtype
-            ).to(device)
+            )
+
+        # Now that's quantized, convert to the state dict
+        # look at sampler
+        
         return (model,)
-
-
-class FluxFillPipelineNode2:
-    @classmethod
-    def INPUT_TYPES(cls):  # noqa: N802
-        return {
-            "required": {
-                "transformer": ("MODEL",),
-                "vae": ("MODEL",),
-                "text_encoder": ("MODEL",),
-                "tokenizer": ("TOKENIZER",),
-                "text_encoder_2": ("MODEL",),
-                "tokenizer_2": ("TOKENIZER",),
-                "device": (device_list,),
-            }
-        }
-
-    CATEGORY = "Models"
-    RETURN_TYPES = ("MODEL",)
-    FUNCTION = "load_pipeline"
-
-    def load_pipeline(
-        self,
-        transformer,
-        vae,
-        text_encoder,
-        tokenizer,
-        text_encoder_2,
-        tokenizer_2,
-        device,
-    ):
-        # Initialize scheduler independently (assuming this is still needed)
-        scheduler = FlowMatchEulerDiscreteScheduler()
-
-        # Construct the FluxFillPipeline using the supplied components
-        pipeline = FluxFillPipeline(
-            scheduler=scheduler,
-            vae=vae,
-            text_encoder=text_encoder,
-            tokenizer=tokenizer,
-            text_encoder_2=text_encoder_2,
-            tokenizer_2=tokenizer_2,
-            transformer=transformer,
-        )
-
-        pipeline.to(device)
-        pipeline.enable_model_cpu_offload()
-        pipeline.transformer.to(dtype)
-
-        return (pipeline,)
-
 
 # TryOffRun Node
 class TryOffRunNode:

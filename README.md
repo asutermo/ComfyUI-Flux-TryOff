@@ -21,3 +21,7 @@ To use, use the 8BitQuantized.json. You can remove the Quanitization step and it
 - TryOn
 - Custom VAE, Text Encoders, etc.
 - Use LoRA
+
+## Issues
+
+- SegFormer model not available (cd models && git clone https://huggingface.co/mattmdjaga/segformer_b2_clothes)
