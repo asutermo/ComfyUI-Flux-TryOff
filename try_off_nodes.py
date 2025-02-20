@@ -42,6 +42,7 @@ comfy_dir = os.path.abspath(os.path.join(node_dir, "..", ".."))
 models_dir = os.path.abspath(os.path.join(comfy_dir, "models"))
 checkpoints_dir = os.path.abspath(os.path.join(models_dir, "checkpoints"))
 encoders_dir = os.path.abspath(os.path.join(models_dir, "text_encoders"))
+clip_dir = os.path.abspath(os.path.join(models_dir, "clip_vision"))
 vae_dir = os.path.abspath(os.path.join(models_dir, "vae"))
 
 dtype = torch.bfloat16
@@ -462,8 +463,8 @@ class TryOnOffRunNodeAdvanced:
             "required": {
                 "flux_catvton_model": ("MODEL",),
                 "vae": (folder_paths.get_filename_list("vae"),),
-                "clip_encoder": (folder_paths.get_filename_list("text_encoders"),),
-                "t5_encoder": (folder_paths.get_filename_list("text_encoders"),),
+                "clip_encoder": (folder_paths.get_filename_list("text_encoders")+folder_paths.get_filename_list("clip_vision"),),
+                "t5_encoder": (folder_paths.get_filename_list("text_encoders")+folder_paths.get_filename_list("clip_vision"),),
                 "image_in": ("IMAGE",),
                 "mask_in": ("MASK",),
                 "width": ("INT", {"default": 576, "min": 128, "max": 1024, "step": 16}),
@@ -489,6 +490,8 @@ class TryOnOffRunNodeAdvanced:
             },
             "optional": {
                 "garment_in": ("IMAGE",),
+                "transformers_config": ("transformers_config",),
+                "diffusers_config": ("diffusers_config",),
             },
         }
 
@@ -512,13 +515,22 @@ class TryOnOffRunNodeAdvanced:
         seed,
         prompt,
         garment_in=None,
+        transformers_config=None,
+        diffusers_config=None,
     ):
-        tokenizer = CLIPTokenizer.from_pretrained(os.path.dirname(clip_encoder))
-        tokenizer_2 = T5TokenizerFast.from_pretrained(os.path.dirname(t5_encoder))
-        text_encoder = CLIPTextModel.from_pretrained(os.path.dirname(clip_encoder))
-        text_encoder_2 = T5EncoderModel.from_pretrained(os.path.dirname(t5_encoder))
+        targs = {"torch_dtype": dtype}
+        if transformers_config:
+            targs['quantization_config'] = transformers_config
+        dargs = {"torch_dtype": dtype}
+        if diffusers_config:
+            dargs['quantization_config'] = diffusers_config
+
+        tokenizer = CLIPTokenizer.from_pretrained(os.path.dirname(clip_encoder), **targs)
+        tokenizer_2 = T5TokenizerFast.from_pretrained(os.path.dirname(t5_encoder), **targs)
+        text_encoder = CLIPTextModel.from_pretrained(os.path.dirname(clip_encoder), **targs)
+        text_encoder_2 = T5EncoderModel.from_pretrained(os.path.dirname(t5_encoder), **targs)
         scheduler = FlowMatchEulerDiscreteScheduler()
-        vae = AutoencoderKL.from_pretrained(os.path.dirname(vae))
+        vae = AutoencoderKL.from_pretrained(os.path.dirname(vae), **dargs)
         pipe = FluxFillPipeline(
             scheduler=scheduler,
             vae=vae,
@@ -542,3 +554,4 @@ class TryOnOffRunNodeAdvanced:
             prompt,
             garment_in,
         )
+            
