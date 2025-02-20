@@ -298,6 +298,95 @@ class TryOnOffModelNode:
         return (model,)
 
 
+def inference(
+    image_in,
+    mask_in,
+    pipe,
+    width,
+    height,
+    num_steps,
+    guidance_scale,
+    seed,
+    prompt,
+    garment_in=None,
+):
+
+    # Preprocessing transforms
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize([0.5], [0.5]),
+        ]
+    )
+    mask_transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+        ]
+    )
+
+    # Resize and preprocess
+    def convert_image(tnsr):
+        return Image.fromarray(
+            np.clip(255.0 * tnsr.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+        ).convert("RGB")
+
+    image = convert_image(image_in).resize((width, height))
+    mask = convert_image(mask_in).resize((width, height))
+
+    if garment_in:
+        garment = convert_image(garment_in).resize((width, height))
+        try_on = True
+    else:
+        try_on = False
+
+    image_tensor = transform(image)
+    mask_tensor = mask_transform(mask)[:1]  # TT5EncoderModelake only first channel
+
+    if try_on:
+        garment_tensor = transform(garment)
+    else:
+        garment_tensor = torch.zeros_like(image_tensor)
+        image_tensor = image_tensor * mask_tensor
+
+    # Concatenate inputs for FluxFillPipeline
+    inpaint_image = torch.cat([garment_tensor, image_tensor], dim=2)
+    garment_mask = torch.zeros_like(mask_tensor)
+
+    if try_on:
+        extended_mask = torch.cat([garment_mask, mask_tensor], dim=2)
+    else:
+        extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
+
+    # Run pipeline
+    result = pipe(
+        height=height,
+        width=width * 2,
+        image=inpaint_image,
+        mask_image=extended_mask,
+        num_inference_steps=num_steps,
+        generator=torch.manual_seed(seed),
+        max_sequence_length=512,
+        guidance_scale=guidance_scale,
+        prompt=prompt,
+    ).images[0]
+
+    # Split result into garment and try-on images
+    garment_result = result.crop((0, 0, width, height))
+    tryoff_result = result.crop((width, 0, width * 2, height))
+
+    tryoff_result = torch.tensor(
+        np.array(tryoff_result) / 255.0, dtype=torch.float32
+    ).unsqueeze(0)
+    garment_result = torch.tensor(
+        np.array(garment_result) / 255.0, dtype=torch.float32
+    ).unsqueeze(0)
+
+    return (
+        tryoff_result,
+        garment_result,
+    )
+
+
 # TryOffRun Node
 class TryOnOffRunNode:
     @classmethod
@@ -351,80 +440,17 @@ class TryOnOffRunNode:
         prompt,
         garment_in=None,
     ):
-
-        # Preprocessing transforms
-        transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5]),
-            ]
-        )
-        mask_transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-            ]
-        )
-
-        # Resize and preprocess
-        def convert_image(tnsr):
-            return Image.fromarray(
-                np.clip(255.0 * tnsr.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
-            ).convert("RGB")
-
-        image = convert_image(image_in).resize((width, height))
-        mask = convert_image(mask_in).resize((width, height))
-
-        if garment_in:
-            garment = convert_image(garment_in).resize((width, height))
-            try_on = True
-        else:
-            try_on = False
-
-        image_tensor = transform(image)
-        mask_tensor = mask_transform(mask)[:1]  # TT5EncoderModelake only first channel
-
-        if try_on:
-            garment_tensor = transform(garment)
-        else:
-            garment_tensor = torch.zeros_like(image_tensor)
-            image_tensor = image_tensor * mask_tensor
-
-        # Concatenate inputs for FluxFillPipeline
-        inpaint_image = torch.cat([garment_tensor, image_tensor], dim=2)
-        garment_mask = torch.zeros_like(mask_tensor)
-
-        if try_on:
-            extended_mask = torch.cat([garment_mask, mask_tensor], dim=2)
-        else:
-            extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
-
-        # Run pipeline
-        result = pipe(
-            height=height,
-            width=width * 2,
-            image=inpaint_image,
-            mask_image=extended_mask,
-            num_inference_steps=num_steps,
-            generator=torch.manual_seed(seed),
-            max_sequence_length=512,
-            guidance_scale=guidance_scale,
-            prompt=prompt,
-        ).images[0]
-
-        # Split result into garment and try-on images
-        garment_result = result.crop((0, 0, width, height))
-        tryoff_result = result.crop((width, 0, width * 2, height))
-
-        tryoff_result = torch.tensor(
-            np.array(tryoff_result) / 255.0, dtype=torch.float32
-        ).unsqueeze(0)
-        garment_result = torch.tensor(
-            np.array(garment_result) / 255.0, dtype=torch.float32
-        ).unsqueeze(0)
-
-        return (
-            tryoff_result,
-            garment_result,
+        return inference(
+            image_in,
+            mask_in,
+            pipe,
+            width,
+            height,
+            num_steps,
+            guidance_scale,
+            seed,
+            prompt,
+            garment_in,
         )
 
 
@@ -504,78 +530,15 @@ class TryOnOffRunNodeAdvanced:
         )
         pipe.enable_model_cpu_offload()
         pipe.transformer.to(dtype)
-
-        # Preprocessing transforms
-        transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5]),
-            ]
-        )
-        mask_transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-            ]
-        )
-
-        # Resize and preprocess
-        def convert_image(tnsr):
-            return Image.fromarray(
-                np.clip(255.0 * tnsr.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
-            ).convert("RGB")
-
-        image = convert_image(image_in).resize((width, height))
-        mask = convert_image(mask_in).resize((width, height))
-
-        if garment_in:
-            garment = convert_image(garment_in).resize((width, height))
-            try_on = True
-        else:
-            try_on = False
-
-        image_tensor = transform(image)
-        mask_tensor = mask_transform(mask)[:1]  # TT5EncoderModelake only first channel
-
-        if try_on:
-            garment_tensor = transform(garment)
-        else:
-            garment_tensor = torch.zeros_like(image_tensor)
-            image_tensor = image_tensor * mask_tensor
-
-        # Concatenate inputs for FluxFillPipeline
-        inpaint_image = torch.cat([garment_tensor, image_tensor], dim=2)
-        garment_mask = torch.zeros_like(mask_tensor)
-
-        if try_on:
-            extended_mask = torch.cat([garment_mask, mask_tensor], dim=2)
-        else:
-            extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
-
-        # Run pipeline
-        result = pipe(
-            height=height,
-            width=width * 2,
-            image=inpaint_image,
-            mask_image=extended_mask,
-            num_inference_steps=num_steps,
-            generator=torch.manual_seed(seed),
-            max_sequence_length=512,
-            guidance_scale=guidance_scale,
-            prompt=prompt,
-        ).images[0]
-
-        # Split result into garment and try-on images
-        garment_result = result.crop((0, 0, width, height))
-        tryoff_result = result.crop((width, 0, width * 2, height))
-
-        tryoff_result = torch.tensor(
-            np.array(tryoff_result) / 255.0, dtype=torch.float32
-        ).unsqueeze(0)
-        garment_result = torch.tensor(
-            np.array(garment_result) / 255.0, dtype=torch.float32
-        ).unsqueeze(0)
-
-        return (
-            tryoff_result,
-            garment_result,
+        return inference(
+            image_in,
+            mask_in,
+            pipe,
+            width,
+            height,
+            num_steps,
+            guidance_scale,
+            seed,
+            prompt,
+            garment_in,
         )
