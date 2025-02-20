@@ -176,7 +176,6 @@ class FluxFillPipelineNode:
     def load_pipeline(
         self, transformer, device, transformers_config=None, diffusers_config=None
     ):
-        #         return {"required": { "style_model_name": (folder_paths.get_filename_list("style_models"), )}}
         if transformers_config:
             tokenizer = CLIPTokenizer.from_pretrained(
                 "openai/clip-vit-large-patch14",
@@ -490,6 +489,22 @@ class TryOnOffRunNodeAdvanced:
         prompt,
         garment_in=None,
     ):
+        tokenizer = CLIPTokenizer.from_pretrained(os.path.dirname(clip_encoder))
+        tokenizer_2 = T5TokenizerFast.from_pretrained(os.path.dirname(t5_encoder))
+        text_encoder = CLIPTextModel.from_pretrained(os.path.dirname(clip_encoder))
+        text_encoder_2 = T5EncoderModel.from_pretrained(os.path.dirname(t5_encoder))
+        scheduler = FlowMatchEulerDiscreteScheduler()
+        vae = AutoencoderKL.from_pretrained(os.path.dirname(vae))
+        pipe = FluxFillPipeline(                
+                scheduler=scheduler,
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                text_encoder_2=text_encoder_2,
+                tokenizer_2=tokenizer_2,
+                transformer=flux_catvton_model)
+        pipe.enable_model_cpu_offload()
+        pipe.transformer.to(dtype)
 
         # Preprocessing transforms
         transform = transforms.Compose(
