@@ -6,6 +6,8 @@ import torch  # type: ignore
 
 from comfy import model_management
 
+import folder_paths
+
 from diffusers import (  # type: ignore
     AutoencoderKL,
     AutoencoderTiny,
@@ -14,8 +16,8 @@ from diffusers import (  # type: ignore
     FluxFillPipeline,
     FluxTransformer2DModel,
 )
-from diffusers.scripts import convert_diffusers_to_original_stable_diffusion
-from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
+#from diffusers.scripts import convert_diffusers_to_original_stable_diffusion
+#from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
 
 from PIL import Image
 from torchvision import transforms  # type: ignore
@@ -174,6 +176,7 @@ class FluxFillPipelineNode:
     def load_pipeline(
         self, transformer, device, transformers_config=None, diffusers_config=None
     ):
+        #         return {"required": { "style_model_name": (folder_paths.get_filename_list("style_models"), )}}
         if transformers_config:
             tokenizer = CLIPTokenizer.from_pretrained(
                 "openai/clip-vit-large-patch14",
@@ -210,6 +213,8 @@ class FluxFillPipelineNode:
                 cache_dir=encoders_dir,
                 torch_dtype=dtype,
             )
+
+            # just get inputs from encoders
             text_encoder = CLIPTextModel.from_pretrained(
                 "openai/clip-vit-large-patch14",
                 cache_dir=encoders_dir,
@@ -302,9 +307,12 @@ class TryOnOffRunNode:
     def INPUT_TYPES(cls):  # noqa: N802
         return {
             "required": {
+                "flux_catvton_model": ("MODEL",),
+                "vae": (folder_paths.get_filename_list("vae"),),
+                "clip_encoder": (folder_paths.get_filename_list("text_encoders"),),
+                "t5_encoder": (folder_paths.get_filename_list("text_encoders"),),
                 "image_in": ("IMAGE",),
                 "mask_in": ("MASK",),
-                "pipe": ("MODEL",),
                 "width": ("INT", {"default": 576, "min": 128, "max": 1024, "step": 16}),
                 "height": (
                     "INT",
@@ -338,9 +346,12 @@ class TryOnOffRunNode:
 
     def run_inference(
         self,
+        flux_catvton_model,
+        vae,
+        clip_encoder,
+        t5_encoder,
         image_in,
         mask_in,
-        pipe,
         width,
         height,
         num_steps,
@@ -379,7 +390,7 @@ class TryOnOffRunNode:
             try_on = False
 
         image_tensor = transform(image)
-        mask_tensor = mask_transform(mask)[:1]  # Take only first channel
+        mask_tensor = mask_transform(mask)[:1]  # TT5EncoderModelake only first channel
 
         if try_on:
             garment_tensor = transform(garment)
