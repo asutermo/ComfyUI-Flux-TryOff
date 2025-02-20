@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from typing import List
 
 import folder_paths
 import numpy as np  # type: ignore
@@ -46,7 +47,6 @@ clip_dir = os.path.abspath(os.path.join(models_dir, "clip_vision"))
 vae_dir = os.path.abspath(os.path.join(models_dir, "vae"))
 
 dtype = torch.bfloat16
-
 
 class TryOffQuantizerNode:
     """Enable quantization to load heavier models"""
@@ -463,7 +463,7 @@ class TryOnOffRunNodeAdvanced:
             "required": {
                 "flux_catvton_model": ("MODEL",),
                 "vae": (folder_paths.get_filename_list("vae"),),
-                "clip_encoder": (folder_paths.get_filename_list("text_encoders")+folder_paths.get_filename_list("clip_vision"),),
+                "clip_l_encoder": (folder_paths.get_filename_list("text_encoders")+folder_paths.get_filename_list("clip_vision"),),
                 "t5_encoder": (folder_paths.get_filename_list("text_encoders")+folder_paths.get_filename_list("clip_vision"),),
                 "image_in": ("IMAGE",),
                 "mask_in": ("MASK",),
@@ -504,7 +504,7 @@ class TryOnOffRunNodeAdvanced:
         self,
         flux_catvton_model,
         vae,
-        clip_encoder,
+        clip_l_encoder,
         t5_encoder,
         image_in,
         mask_in,
@@ -525,12 +525,28 @@ class TryOnOffRunNodeAdvanced:
         if diffusers_config:
             dargs['quantization_config'] = diffusers_config
 
-        tokenizer = CLIPTokenizer.from_pretrained(os.path.dirname(clip_encoder), **targs)
-        tokenizer_2 = T5TokenizerFast.from_pretrained(os.path.dirname(t5_encoder), **targs)
-        text_encoder = CLIPTextModel.from_pretrained(os.path.dirname(clip_encoder), **targs)
-        text_encoder_2 = T5EncoderModel.from_pretrained(os.path.dirname(t5_encoder), **targs)
+        def get_full_path(possible_paths: List[str], file_path: str):
+            for path in possible_paths:
+                full_path = os.path.join(path, file_path)
+                print(f'Trying {full_path}')
+                if os.path.exists(full_path):
+                    print(f'Using {full_path}')
+                    return full_path
+            raise Exception("Model file {file_path} not found in any of the possible paths")
+        
+        clip_encoder_path = get_full_path([encoders_dir, clip_dir], clip_l_encoder)
+        t5_encoder_path = get_full_path([encoders_dir, clip_dir], t5_encoder)
+        vae_path = get_full_path([vae_dir], vae)
+
+        clip_tokenizer = CLIPTokenizer()
+
+        tokenizer = CLIPTokenizer.from_pretrained(clip_encoder_path, **targs)
+        tokenizer_2 = T5TokenizerFast.from_pretrained(t5_encoder_path, **targs)
+
+        text_encoder = CLIPTextModel.from_pretrained(clip_encoder_path, **targs)
+        text_encoder_2 = T5EncoderModel.from_pretrained(t5_encoder_path, **targs)
         scheduler = FlowMatchEulerDiscreteScheduler()
-        vae = AutoencoderKL.from_pretrained(os.path.dirname(vae), **dargs)
+        vae = AutoencoderKL.from_pretrained(vae_path, **dargs)
         pipe = FluxFillPipeline(
             scheduler=scheduler,
             vae=vae,
