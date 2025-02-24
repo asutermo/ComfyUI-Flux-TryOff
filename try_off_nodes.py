@@ -638,7 +638,7 @@ class TryOnOffLoader:
         cache_dir = CUSTOM_MODELS_DIR
         local_dir = os.path.join(cache_dir, model_name)
         os.makedirs(local_dir, exist_ok=True)
-        
+
         dtype = torch.float16 if precision == "half" else torch.float32
 
         quantization_config = TransformersBitsAndBytesConfig(
@@ -656,7 +656,7 @@ class TryOnOffLoader:
         #     quantization_config=quantization_config
         # )
         snapshot_download(repo_id=model_name, local_dir=local_dir, cache_dir=cache_dir)
-        index_path = os.path.join(cache_dir, model_name, "index.json")
+        index_path = os.path.join(cache_dir, model_name, "diffusion_pytorch_model.safetensors.index.json")
 
         def load_from_index(index_path):
             print(f"Load_from_index: index_path: {index_path}")
