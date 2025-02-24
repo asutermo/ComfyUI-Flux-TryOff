@@ -8,6 +8,17 @@ Please note, that this was tested with a 4080, and it's quite slow. You'll want 
 This uses diffusers>=0.32.2.
 
 After heavy experimenting with Try-on, it's nice to have a [Try-Off, xiaozaa/cat-tryoff-flux](https://huggingface.co/xiaozaa/cat-tryoff-flux) model to work with.
+
+## Prerequisites
+
+Go to your ComfyUI models folder.
+
+```sh
+git clone https://huggingface.co/mattmdjaga/segformer_b2_clothes
+```
+
+This will acquire the necessary model for doing the clothing segmentation. Otherwise, you can create a mask region yourself.
+
 All models will download automatically unless you use the legacy 'FluxFill Model Loader'. The quantized versions will work on lower end GPUs but this has not been verified for multi-gpu runs.
 
 To use, use the 8BitQuantized.json. You can remove the Quanitization step and it should still work.
@@ -21,7 +32,3 @@ To use, use the 8BitQuantized.json. You can remove the Quanitization step and it
 - TryOn
 - Custom VAE, Text Encoders, etc.
 - Use LoRA
-
-## Issues
-
-- SegFormer model not available (cd models && git clone https://huggingface.co/mattmdjaga/segformer_b2_clothes)
