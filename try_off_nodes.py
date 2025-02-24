@@ -1,3 +1,4 @@
+import json
 import os
 from dataclasses import dataclass
 from typing import List
@@ -8,7 +9,7 @@ import numpy as np  # type: ignore
 import torch  # type: ignore
 import torch.nn.functional as F
 from comfy import model_management
-from comfy.model_base import BaseModel
+from comfy.model_base import Flux
 from diffusers import (  # type: ignore
     AutoencoderKL,
     AutoencoderTiny,
@@ -29,7 +30,7 @@ from transformers import (  # type: ignore
 
 # from diffusers.scripts import convert_diffusers_to_original_stable_diffusion
 # from diffusers.loaders.single_file_utils import convert_ldm_vae_checkpoint
-
+from huggingface_hub import snapshot_download
 
 __all__ = [
     "TryOffModelNode",
@@ -507,8 +508,7 @@ class TryOnOffRunNodeAdvanced:
         self,
         flux_catvton_model,
         vae,
-        clip_l_encoder,
-        t5_encoder,
+        conditioning,
         image_in,
         mask_in,
         width,
@@ -539,8 +539,6 @@ class TryOnOffRunNodeAdvanced:
                 "Model file {file_path} not found in any of the possible paths"
             )
 
-        clip_encoder_path = get_full_path([encoders_dir, clip_dir], clip_l_encoder)
-        t5_encoder_path = get_full_path([encoders_dir, clip_dir], t5_encoder)
         vae_path = get_full_path([vae_dir], vae)
 
         clip_tokenizer = CLIPTokenizer()
@@ -572,9 +570,14 @@ class TryOnOffRunNodeAdvanced:
         )
 
 
-class FluxModelWrapper(BaseModel):
-    def __init__(self, model, model_type="v1"):
-        super().__init__(model_type=model_type)
+class FluxModelWrapper(Flux):
+    def __init__(self, model, model_type="FLUX"):
+        unet_config = {
+            "image_model": "flux",
+            "guidance_embed": True,
+            "in_channels": 96,
+        }
+        super().__init__(model_config = {"unet_config": unet_config})
         self.model = model
         self.device = model_management.get_torch_device()
         self.offload_device = model_management.unet_offload_device()
@@ -630,21 +633,58 @@ class TryOnOffLoader:
     FUNCTION = "load_model"
     CATEGORY = "loaders"
 
-    def load_model(self, model_name, precision):
+    @classmethod
+    def load_model(cls, model_name, precision):
         cache_dir = CUSTOM_MODELS_DIR
+        local_dir = os.path.join(cache_dir, model_name)
+        os.makedirs(local_dir, exist_ok=True)
+        
         dtype = torch.float16 if precision == "half" else torch.float32
 
+        quantization_config = TransformersBitsAndBytesConfig(
+            load_in_8bit=True,
+            llm_int8_threshold=6.0,
+            llm_int8_has_fp16_weight=False
+        )
+    
         # Load model using diffusers
         print(f"Loading {model_name} from HuggingFace or cache...")
-        flux_model = FluxTransformer2DModel.from_pretrained(
-            model_name,
-            cache_dir=cache_dir,
-            torch_dtype=dtype,
-        )
+        # flux_model = FluxTransformer2DModel.from_pretrained(
+        #     model_name,
+        #     cache_dir=cache_dir,
+        #     torch_dtype=dtype,
+        #     quantization_config=quantization_config
+        # )
+        snapshot_download(repo_id=model_name, local_dir=local_dir, cache_dir=cache_dir)
+        index_path = os.path.join(cache_dir, model_name, "index.json")
 
-        # Wrap for ComfyUI compatibility
-        wrapped_model = FluxModelWrapper(flux_model)
-        return (wrapped_model,)
+        def load_from_index(index_path):
+            print(f"Load_from_index: index_path: {index_path}")
+            
+            with open(index_path, 'r') as f:
+                index_data = json.load(f)
+            weight_map = index_data['weight_map']
+            state_dict = {}
+            
+            for key, file in weight_map.items():
+                file_path = os.path.join(os.path.dirname(index_path), file)
+                part_dict = comfy.utils.load_torch_file(file_path, safe_load=True)
+                state_dict.update(part_dict)
+                del part_dict
+                #torch.cuda.empty_cache()
+            
+            print(f"Load from index function completed. Returning state_dict")
+            return state_dict
+        state_dict = load_from_index(index_path) 
+        model_options = {}
+        weight_dtype="fp8_e4m3fn"
+        if weight_dtype == "fp8_e4m3fn":
+            model_options["dtype"] = torch.float8_e4m3fn
+        elif weight_dtype == "fp8_e5m2":
+            model_options["dtype"] = torch.float8_e5m2
+        
+        model = cls.load_diffusion_model_from_state_dict(state_dict, model_options=model_options)
+        return (model,)
 
 
 class TryOnOffSampler:
@@ -690,32 +730,44 @@ class TryOnOffSampler:
         # Ensure we're working with the right dimensions
         if len(image.shape) == 3:  # Add batch dimension if needed
             image = image.unsqueeze(0)
-            
-        # Convert from NHWC to NCHW
-        image = image.permute(0, 3, 1, 2)
         
-        if image.shape[2:] != (height, width):
+        # Convert from NHWC to NCHW format
+        if image.shape[3] == 3 or image.shape[3] == 4:  # If in NHWC format
+            image = image.permute(0, 3, 1, 2)
+            if image.shape[1] == 4:  # If RGBA, convert to RGB
+                image = image[:, :3]
+        
+        # Resize if needed
+        if image.shape[2] != height or image.shape[3] != width:
             image = F.interpolate(image, size=(height, width), mode='bilinear')
         
-        # Normalize to [-1, 1]
-        image = image * 2 - 1
+        # Ensure normalized to [-1, 1] for VAE
+        if image.max() > 1.0:
+            image = image / 255.0
+        image = image * 2.0 - 1.0
+        
         return image
 
     def prepare_mask_tensor(self, mask, width, height):
         # Ensure mask has right dimensions
         if len(mask.shape) == 2:  # Add batch and channel dimensions if needed
             mask = mask.unsqueeze(0).unsqueeze(0)
-        elif len(mask.shape) == 3:  # Add batch dimension if needed
-            mask = mask.unsqueeze(0)
-            
-        # If mask is NHWC format, convert to NCHW
-        if mask.shape[3] == 1:
-            mask = mask.permute(0, 3, 1, 2)
+        elif len(mask.shape) == 3 and mask.shape[2] == 1:  # If [H,W,1]
+            mask = mask.permute(2, 0, 1).unsqueeze(0)  # To [1,1,H,W]
+        elif len(mask.shape) == 3:  # If [B,H,W]
+            mask = mask.unsqueeze(1)  # To [B,1,H,W]
+        elif len(mask.shape) == 4 and mask.shape[3] == 1:  # If [B,H,W,1]
+            mask = mask.permute(0, 3, 1, 2)  # To [B,1,H,W]
         
-        if mask.shape[2:] != (height, width):
+        # Resize if needed
+        if mask.shape[2] != height or mask.shape[3] != width:
             mask = F.interpolate(mask, size=(height, width), mode='nearest')
         
+        # Ensure binary values
+        mask = (mask > 0.5).float()
+        
         return mask
+
 
 
     def get_conditioning(self, clip, prompt):
@@ -745,14 +797,8 @@ class TryOnOffSampler:
         negative = self.get_conditioning(clip, "")
 
         # Prepare images
-        print(f"Initial image shape: {image.shape}")
-        print(f"Initial mask shape: {mask.shape}")
-
         image_tensor = self.prepare_image_tensor(image, width, height)
         mask_tensor = self.prepare_mask_tensor(mask, width, height)
-
-        print(f"Processed image shape: {image_tensor.shape}")
-        print(f"Processed mask shape: {mask_tensor.shape}")
 
         if garment_image is not None:
             garment_tensor = self.prepare_image_tensor(garment_image, width, height)
@@ -762,18 +808,29 @@ class TryOnOffSampler:
             image_tensor = image_tensor * mask_tensor
             try_on = False
 
-        # Concatenate inputs sideways
-        inpaint_image = torch.cat([garment_tensor, image_tensor], dim=3)
-        garment_mask = torch.zeros_like(mask_tensor)
-
+        # KEY FIX: Concatenate inputs along width dimension (dim=3 for NCHW format)
+        # We need width*2 for the final image
+        double_width = width * 2
+        concat_height = height
+        
+        # Create a new tensor with the right dimensions for side-by-side images
+        inpaint_image = torch.zeros((1, 3, concat_height, double_width), device=device)
+        
+        # Place the garment image on the left half
+        inpaint_image[:, :, :, :width] = garment_tensor
+        
+        # Place the person image on the right half
+        inpaint_image[:, :, :, width:] = image_tensor
+        
+        # Similarly for the mask
+        extended_mask = torch.zeros((1, 1, concat_height, double_width), device=device)
+        
         if try_on:
-            extended_mask = torch.cat([garment_mask, mask_tensor], dim=3)
+            # For try-on, mask is on the right side
+            extended_mask[:, :, :, width:] = mask_tensor
         else:
-            extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=3)
-
-        # Move to appropriate device
-        inpaint_image = inpaint_image.to(device)
-        extended_mask = extended_mask.to(device)
+            # For try-off, inverse mask on the left side
+            extended_mask[:, :, :, :width] = 1 - torch.zeros_like(mask_tensor)
 
         # Encode to latent space
         latent = vae.encode(inpaint_image)
