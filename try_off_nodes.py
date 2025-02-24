@@ -682,8 +682,7 @@ class TryOnOffLoader:
             model_options["dtype"] = torch.float8_e4m3fn
         elif weight_dtype == "fp8_e5m2":
             model_options["dtype"] = torch.float8_e5m2
-        
-        model = cls.load_diffusion_model_from_state_dict(state_dict, model_options=model_options)
+        model = comfy.sd.load_diffusion_model_state_dict(state_dict, model_options=model_options)
         return (model,)
 
 
