@@ -684,7 +684,10 @@ class TryOnOffLoader:
             model_options["dtype"] = torch.float8_e5m2
         model = comfy.sd.load_diffusion_model_state_dict(state_dict, model_options=model_options)
         return (model,)
-
+import torch
+import torch.nn.functional as F
+import comfy.model_management as model_management
+import comfy.sample
 
 class TryOnOffSampler:
     @classmethod
@@ -711,7 +714,12 @@ class TryOnOffSampler:
                     "STRING",
                     {
                         "multiline": True,
-                        "default": "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; [IMAGE1] Detailed product shot of clothing [IMAGE2] The same clothing is worn by a model in a lifestyle setting.",
+                        "default": (
+                            "The pair of images highlights clothing and its styling "
+                            "on a model, high resolution, 4K, 8K; [IMAGE1] Detailed product "
+                            "shot of clothing [IMAGE2] The same clothing is worn by a "
+                            "model in a lifestyle setting."
+                        ),
                     },
                 ),
             },
@@ -725,51 +733,63 @@ class TryOnOffSampler:
     FUNCTION = "sample"
     CATEGORY = "sampling"
 
-    def prepare_image_tensor(self, image, width, height):
-        # Ensure we're working with the right dimensions
-        if len(image.shape) == 3:  # Add batch dimension if needed
-            image = image.unsqueeze(0)
-        
-        # Convert from NHWC to NCHW format
-        if image.shape[3] == 3 or image.shape[3] == 4:  # If in NHWC format
-            image = image.permute(0, 3, 1, 2)
-            if image.shape[1] == 4:  # If RGBA, convert to RGB
-                image = image[:, :3]
-        
-        # Resize if needed
-        if image.shape[2] != height or image.shape[3] != width:
+    def prepare_image_tensor(self, image: torch.Tensor, width: int, height: int):
+        """
+        Returns a tensor in [B, C, H, W], scaled to [-1..1].
+        """
+        # 1) Expand to batch dimension if needed
+        if image.dim() == 3:  # e.g. [H, W, C]
+            image = image.unsqueeze(0)  # => [1, H, W, C]
+        print("After unsqueeze, image shape:", image.shape)
+
+        # 2) If last dim is 4, chop off alpha channel => keep RGB
+        if image.shape[-1] == 4:
+            image = image[..., :3]
+
+        # 3) If still NHWC => permute to NCHW
+        if image.shape[-1] == 3:
+            image = image.permute(0, 3, 1, 2)  # => [B, 3, H, W]
+        print("After permutation, image shape:", image.shape)
+
+        # 4) Resize to [height, width]
+        if (image.shape[2] != height) or (image.shape[3] != width):
             image = F.interpolate(image, size=(height, width), mode='bilinear')
-        
-        # Ensure normalized to [-1, 1] for VAE
+        print("After interpolate, image shape:", image.shape)
+
+        # 5) Scale from [0..255] => [0..1] if needed
         if image.max() > 1.0:
             image = image / 255.0
+
+        # 6) Convert [0..1] => [-1..1]
         image = image * 2.0 - 1.0
-        
-        return image
 
-    def prepare_mask_tensor(self, mask, width, height):
-        # Ensure mask has right dimensions
-        if len(mask.shape) == 2:  # Add batch and channel dimensions if needed
-            mask = mask.unsqueeze(0).unsqueeze(0)
-        elif len(mask.shape) == 3 and mask.shape[2] == 1:  # If [H,W,1]
-            mask = mask.permute(2, 0, 1).unsqueeze(0)  # To [1,1,H,W]
-        elif len(mask.shape) == 3:  # If [B,H,W]
-            mask = mask.unsqueeze(1)  # To [B,1,H,W]
-        elif len(mask.shape) == 4 and mask.shape[3] == 1:  # If [B,H,W,1]
-            mask = mask.permute(0, 3, 1, 2)  # To [B,1,H,W]
-        
+        print("Final prepared image shape:", image.shape,
+              "range:", (image.min().item(), image.max().item()))
+        return image  # [B,3,H,W]
+
+    def prepare_mask_tensor(self, mask: torch.Tensor, width: int, height: int):
+        """
+        Returns a mask in [B, 1, H, W].
+        """
+        # Ensure mask has a batch and channel dimension
+        if mask.dim() == 2:  # [H, W]
+            mask = mask.unsqueeze(0).unsqueeze(0)  # => [1, 1, H, W]
+        elif mask.dim() == 3 and mask.shape[2] == 1:  # [H, W, 1]
+            mask = mask.permute(2, 0, 1).unsqueeze(0)  # => [1, 1, H, W]
+        elif mask.dim() == 3:  # [B, H, W]
+            mask = mask.unsqueeze(1)  # => [B, 1, H, W]
+        elif mask.dim() == 4 and mask.shape[3] == 1:  # [B, H, W, 1]
+            mask = mask.permute(0, 3, 1, 2)  # => [B, 1, H, W]
+
         # Resize if needed
-        if mask.shape[2] != height or mask.shape[3] != width:
+        if (mask.shape[2] != height) or (mask.shape[3] != width):
             mask = F.interpolate(mask, size=(height, width), mode='nearest')
-        
-        # Ensure binary values
+
+        # Binarize
         mask = (mask > 0.5).float()
-        
-        return mask
+        return mask  # [B,1,H,W]
 
-
-
-    def get_conditioning(self, clip, prompt):
+    def get_conditioning(self, clip, prompt: str):
         tokens = clip.tokenize(prompt)
         cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
         return [[cond, {"pooled_output": pooled}]]
@@ -795,50 +815,47 @@ class TryOnOffSampler:
         positive = self.get_conditioning(clip, prompt)
         negative = self.get_conditioning(clip, "")
 
-        # Prepare images
+        # Prepare images in [B,3,H,W]
         image_tensor = self.prepare_image_tensor(image, width, height)
         mask_tensor = self.prepare_mask_tensor(mask, width, height)
 
+        # If we have a garment image, prepare it; else blank
         if garment_image is not None:
             garment_tensor = self.prepare_image_tensor(garment_image, width, height)
             try_on = True
         else:
             garment_tensor = torch.zeros_like(image_tensor)
+            # "Try-off": blank out the original image wherever mask=1
             image_tensor = image_tensor * mask_tensor
             try_on = False
 
-        # KEY FIX: Concatenate inputs along width dimension (dim=3 for NCHW format)
-        # We need width*2 for the final image
+        # Create a side-by-side [B,3,H,2W]
         double_width = width * 2
-        concat_height = height
-        
-        # Create a new tensor with the right dimensions for side-by-side images
-        inpaint_image = torch.zeros((1, 3, concat_height, double_width), device=device)
-        
-        # Place the garment image on the left half
+        inpaint_image = torch.zeros((1, 3, height, double_width), device=device)
+        # Garment on the left half
         inpaint_image[:, :, :, :width] = garment_tensor
-        
-        # Place the person image on the right half
+        # Person on the right half
         inpaint_image[:, :, :, width:] = image_tensor
-        
-        # Similarly for the mask
-        extended_mask = torch.zeros((1, 1, concat_height, double_width), device=device)
-        
+
+        # Build extended mask likewise [B,1,H,2W]
+        extended_mask = torch.zeros((1, 1, height, double_width), device=device)
         if try_on:
-            # For try-on, mask is on the right side
+            # For "try-on", the mask applies on the right side
             extended_mask[:, :, :, width:] = mask_tensor
         else:
-            # For try-off, inverse mask on the left side
-            extended_mask[:, :, :, :width] = 1 - torch.zeros_like(mask_tensor)
+            # For "try-off", invert the mask on the left side, etc.
+            extended_mask[:, :, :, :width] = 1.0 - torch.zeros_like(mask_tensor)
 
-        # Encode to latent space
-        latent = vae.encode(inpaint_image)
+        # --- Key step: permute to NHWC before vae.encode() ---
+        inpaint_nhwc = inpaint_image.permute(0, 2, 3, 1)  # => [B,H,2W,C]
+        latent = vae.encode(inpaint_nhwc)  # returns a 4D tensor in latent space
+        print("latent shape:", latent.shape)
 
-        # Set up noise
+        # Make noise of same shape
         generator = torch.manual_seed(seed)
-        noise = torch.randn(latent.shape, generator=generator, device=device)
+        noise = torch.randn_like(latent, generator=generator, device=device)
 
-        # Sample
+        # Sample in latent space
         samples = comfy.sample.sample(
             model,
             noise,
@@ -852,19 +869,19 @@ class TryOnOffSampler:
             disable_noise=False,
         )
 
-        # Decode latents
+        # Decode latents => returns a 4D tensor [B,C,H,2W]
         decoded = vae.decode(samples)
+        print("decoded shape:", decoded.shape)
 
-        # Split and process results
-        garment_result = decoded[:, :, :, :width]
-        tryon_result = decoded[:, :, :, width:]
+        # Split side-by-side
+        garment_result = decoded[:, :, :, :width]  # => [B,3,H,W]
+        tryon_result = decoded[:, :, :, width:]    # => [B,3,H,W]
 
-        # Convert to ComfyUI format [B,H,W,C]
-        garment_result = garment_result.permute(0, 2, 3, 1)
-        tryon_result = tryon_result.permute(0, 2, 3, 1)
-
-        # Normalize to [0, 1]
+        # Convert to ComfyUI "IMAGE" format: [B,H,W,C], scale [-1..1] => [0..1]
+        garment_result = garment_result.permute(0, 2, 3, 1)  # [B,H,W,3]
         garment_result = (garment_result + 1) / 2
+
+        tryon_result = tryon_result.permute(0, 2, 3, 1)      # [B,H,W,3]
         tryon_result = (tryon_result + 1) / 2
 
         return (garment_result, tryon_result, {"samples": samples})
