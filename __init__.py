@@ -4,6 +4,8 @@ from .try_off_nodes import (  # noqa
     TryOffModelNode,
     TryOffQuantizerNode,
     TryOffRunNode,
+    TryOnRunNode,
+    TryOnOffRunNode
 )
 
 # Node Registrations
@@ -13,6 +15,8 @@ NODE_CLASS_MAPPINGS = {
     "TryOffRunNode": TryOffRunNode,
     "TryOffQuantizerNode": TryOffQuantizerNode,
     "TryOffFluxFillPipelineNode": FluxFillPipelineNode,
+    "TryOnRunNode": TryOnRunNode,
+    "TryOnOffRunNode": TryOnOffRunNode
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -21,4 +25,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "TryOffRunNode": "Run TryOff Inference [ComfyUI-Flux-TryOff]",
     "TryOffQuantizerNode": "TryOff Quantizer [ComfyUI-Flux-TryOff]",
     "TryOffFluxFillPipelineNode": "FluxFill Pipeline Loader [ComfyUI-Flux-TryOff]",
+    "TryOnRunNode": "Run TryOn Inference [ComfyUI-Flux-TryOff]",
+    "TryOnOffRunNode": "Run TryOn or TryOff Inference [ComfyUI-Flux-TryOff]",
 }
