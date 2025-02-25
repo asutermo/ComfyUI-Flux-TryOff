@@ -22,11 +22,13 @@ from transformers import (  # type: ignore
 )
 
 __all__ = [
-    "TryOffModelNode",
     "TryOffFluxFillModelNode",
     "TryOffRunNode",
     "TryOffQuantizerNode",
     "FluxFillPipelineNode",
+    "TryOnOffModelNode",
+    "TryOnRunNode",
+    "TryOnOffRunNode",
 ]
 
 device_list = ["cuda", "cpu"]
@@ -72,14 +74,18 @@ class TryOffQuantizerNode:
         else:
             return (None, None)
 
-
-# TryOffModel Node
-class TryOffModelNode:
+class TryOnOffModelNode:
     @classmethod
     def INPUT_TYPES(cls):  # noqa: N802
         return {
             "required": {
-                "model_name": (["xiaozaa/cat-tryoff-flux"],),
+                "model_name": (
+                    [
+                        "xiaozaa/cat-tryoff-flux",
+                        "xiaozaa/catvton-flux-beta",
+                        "xiaozaa/catvton-flux-alpha",
+                    ],
+                ),
                 "device": (device_list,),
             },
             "optional": {"transformers_config": ("transformers_config",)},
@@ -101,8 +107,8 @@ class TryOffModelNode:
             model = FluxTransformer2DModel.from_pretrained(
                 model_name, cache_dir=checkpoints_dir, torch_dtype=dtype
             ).to(device)
-        return (model,)
 
+        return (model,)
 
 # FluxFillModel Node
 class TryOffFluxFillModelNode:
@@ -244,9 +250,8 @@ class FluxFillPipelineNode:
                 tokenizer_2=tokenizer_2,
                 transformer=transformer,
             )
-        pipeline.to(device)
+            pipeline.to(device)
         pipeline.enable_model_cpu_offload()
-        pipeline.transformer.to(dtype)
 
         return (pipeline,)
 
