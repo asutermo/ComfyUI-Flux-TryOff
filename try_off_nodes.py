@@ -261,14 +261,14 @@ def tryon_off_inference(
     pipe,
     image_in,
     mask_in,
-    try_on,
+    try_on: bool,
     garment_in,
-    prompt,
-    steps,
-    guidance_scale,
-    seed,
-    width,
-    height,
+    prompt: str,
+    steps: int,
+    guidance_scale: float,
+    seed: int,
+    width: int,
+    height: int,
 ):
     transform = transforms.Compose(
         [
@@ -526,7 +526,7 @@ class TryOnOffRunNode:
         garment_in=None,
     ):
         # TODO: type checking
-        if garment_in:
+        if garment_in is not None:
             return tryon_off_inference(
                 pipe,
                 image_in,
