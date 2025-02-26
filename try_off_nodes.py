@@ -10,7 +10,6 @@ from diffusers import (  # type: ignore
     FluxTransformer2DModel,
 )
 from diffusers.utils import load_image
-
 from PIL import Image
 from torchvision import transforms  # type: ignore
 from transformers import (  # type: ignore
@@ -74,6 +73,7 @@ class TryOffQuantizerNode:
         else:
             return (None, None)
 
+
 class TryOnOffModelNode:
     @classmethod
     def INPUT_TYPES(cls):  # noqa: N802
@@ -109,6 +109,7 @@ class TryOnOffModelNode:
             ).to(device)
 
         return (model,)
+
 
 # FluxFillModel Node
 class TryOffFluxFillModelNode:
@@ -235,7 +236,7 @@ class FluxFillPipelineNode:
                 tokenizer=tokenizer,
                 text_encoder_2=text_encoder_2,
                 tokenizer_2=tokenizer_2,
-                transformer=transformer
+                transformer=transformer,
             )
         else:
             vae = AutoencoderTiny.from_pretrained(
@@ -255,18 +256,31 @@ class FluxFillPipelineNode:
 
         return (pipeline,)
 
-def tryon_off_inference(pipe, image_in, mask_in, try_on, garment_in, prompt, steps, guidance_scale, seed, width, height):
+
+def tryon_off_inference(
+    pipe,
+    image_in,
+    mask_in,
+    try_on,
+    garment_in,
+    prompt,
+    steps,
+    guidance_scale,
+    seed,
+    width,
+    height,
+):
     transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5]),
-            ]
-        )
+        [
+            transforms.ToTensor(),
+            transforms.Normalize([0.5], [0.5]),
+        ]
+    )
     mask_transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-            ]
-        )
+        [
+            transforms.ToTensor(),
+        ]
+    )
 
     # Resize and preprocess
     def convert_image(tnsr):
@@ -289,14 +303,16 @@ def tryon_off_inference(pipe, image_in, mask_in, try_on, garment_in, prompt, ste
         image_tensor = image_tensor * mask_tensor
 
     # Create concatenated images
-    inpaint_image = torch.cat([garment_tensor, image_tensor], dim=2)  # Concatenate along width
+    inpaint_image = torch.cat(
+        [garment_tensor, image_tensor], dim=2
+    )  # Concatenate along width
     garment_mask = torch.zeros_like(mask_tensor)
 
     if try_on:
         extended_mask = torch.cat([garment_mask, mask_tensor], dim=2)
     else:
         extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
-    
+
     # Run pipeline
     result = pipe(
         height=height,
@@ -325,6 +341,7 @@ def tryon_off_inference(pipe, image_in, mask_in, try_on, garment_in, prompt, ste
         try_result,
         garment_result,
     )
+
 
 # TryOffRun Node
 class TryOffRunNode:
@@ -375,8 +392,20 @@ class TryOffRunNode:
         seed,
         prompt,
     ):
-        return tryon_off_inference(pipe, image_in, mask_in, False, None, prompt, num_steps, guidance_scale, seed, width, height)
-    
+        return tryon_off_inference(
+            pipe,
+            image_in,
+            mask_in,
+            False,
+            None,
+            prompt,
+            num_steps,
+            guidance_scale,
+            seed,
+            width,
+            height,
+        )
+
 
 class TryOnRunNode:
     @classmethod
@@ -429,8 +458,21 @@ class TryOnRunNode:
         prompt,
     ):
 
-        return tryon_off_inference(pipe, image_in, mask_in, True, garment_in, prompt, num_steps, guidance_scale, seed, width, height)
-    
+        return tryon_off_inference(
+            pipe,
+            image_in,
+            mask_in,
+            True,
+            garment_in,
+            prompt,
+            num_steps,
+            guidance_scale,
+            seed,
+            width,
+            height,
+        )
+
+
 class TryOnOffRunNode:
     @classmethod
     def INPUT_TYPES(cls):  # noqa: N802
@@ -462,7 +504,7 @@ class TryOnOffRunNode:
             },
             "optional": {
                 "garment_in": ("IMAGE",),
-            }
+            },
         }
 
     RETURN_TYPES = ("IMAGE", "IMAGE")
@@ -481,11 +523,34 @@ class TryOnOffRunNode:
         guidance_scale,
         seed,
         prompt,
-        garment_in=None
+        garment_in=None,
     ):
         # TODO: type checking
         if garment_in:
-            return tryon_off_inference(pipe, image_in, mask_in, True, garment_in, prompt, num_steps, guidance_scale, seed, width, height)
+            return tryon_off_inference(
+                pipe,
+                image_in,
+                mask_in,
+                True,
+                garment_in,
+                prompt,
+                num_steps,
+                guidance_scale,
+                seed,
+                width,
+                height,
+            )
         else:
-            return tryon_off_inference(pipe, image_in, mask_in, False, None, prompt, num_steps, guidance_scale, seed, width, height)
-        
+            return tryon_off_inference(
+                pipe,
+                image_in,
+                mask_in,
+                False,
+                None,
+                prompt,
+                num_steps,
+                guidance_scale,
+                seed,
+                width,
+                height,
+            )
