@@ -5,58 +5,35 @@ There's a sample workflow in [Workflow](https://github.com/asutermo/ComfyUI-Flux
 
 Please note, that this was tested with a 4080, and it's quite slow. You'll want a 4090 or better for performant execution as of right now.
 
-This uses diffusers>=0.32.2 but you no longer need to approve on the Hugging Face site or use the Flux.1 Dev Model
-
-```diff
-- This is presently incompatible with Flux fp8 single file.
-```
+This uses diffusers>=0.32.2.
 
 After heavy experimenting with Try-on, it's nice to have a [Try-Off, xiaozaa/cat-tryoff-flux](https://huggingface.co/xiaozaa/cat-tryoff-flux) model to work with.
+
+## Prerequisites
+
+<span style="color:yellow;">This is optional. You can choose to provide your own mask, however, Segformer makes it very easy which is why my examples use this</span>
+
+The examples I provide uses [ComfyUI LayerStyle](https://github.com/chflame163/ComfyUI_LayerStyle). You can install this via ComfyUI Manager.
+You can follow the guide they provide to download models [here](https://github.com/chflame163/ComfyUI_LayerStyle?tab=readme-ov-file) or you can do the following clone command in your installation/models folder.
+
+```sh
+cd ./models
+git clone https://huggingface.co/mattmdjaga/segformer_b2_clothes
+```
+
+This will acquire the necessary model for doing the clothing segmentation. Otherwise, you can create a mask region yourself.
+
 All models will download automatically unless you use the legacy 'FluxFill Model Loader'. The quantized versions will work on lower end GPUs but this has not been verified for multi-gpu runs.
 
-To use, use the 8BitQuantized.json. You can remove the Quanitization step and it should still work.
+To use, use the 8BitQuantized.json. You can remove the Quanitization step and it should still work if you have sufficient GPU VRAM.
 
-![Quantized Sample](./quantized_sample_4bit.png)
+![Quantized Sample](./images/quantized_sample_4bit.png)
+
+![Try On Sample](./images/tryon.png)
 
 ## TODO
 
 - Multi-gpu testing
 - Optimize, optimize, optimize.
-- TryOn
 - Custom VAE, Text Encoders, etc.
-
-## Legacy (<= v1.1)
-
-1. Go to huggingface
-2. Go to your settings and generate a 'write' token
-3. Go to https://huggingface.co/black-forest-labs/FLUX.1-dev and accept the terms
-4. Open a prompt, go to your ComfyUI installation and do the following
-
-Windows
-
-```bat
-SET HF_TOKEN=<token_from_above>
-SET HUGGING_FACE_HUB_TOKEN=<token_from_above>
-```
-
-Linux
-
-```sh
-EXPORT HF_TOKEN=<token_from_above>
-EXPORT HUGGING_FACE_HUB_TOKEN=<token_from_above>
-```
-
-Finally, download FLUX.1
-
-```sh
-cd ./models/checkpoints
-git lfs install
-git clone https://huggingface.co/black-forest-labs/FLUX.1-dev
-```
-
-And run
-
-```sh
-cd ../..
-python ./main.py
-```
+- Use LoRA

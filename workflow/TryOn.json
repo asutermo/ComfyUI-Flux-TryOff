@@ -1,0 +1,547 @@
+{
+  "last_node_id": 12,
+  "last_link_id": 16,
+  "nodes": [
+    {
+      "id": 3,
+      "type": "PreviewImage",
+      "pos": [
+        5932.7314453125,
+        -1990.55126953125
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 4,
+      "type": "PreviewImage",
+      "pos": [
+        6220.50390625,
+        -1560.689208984375
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 15
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 5,
+      "type": "PreviewImage",
+      "pos": [
+        6053.2353515625,
+        -1307.088134765625
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 16
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 1,
+      "type": "LayerMask: SegformerB2ClothesUltra",
+      "pos": [
+        4879.99267578125,
+        -2057.8193359375
+      ],
+      "size": [
+        466.1999816894531,
+        630
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            11
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LayerMask: SegformerB2ClothesUltra"
+      },
+      "widgets_values": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        "VITMatte",
+        12,
+        6,
+        0.15,
+        0.99,
+        true,
+        "cuda",
+        2
+      ],
+      "color": "rgba(27, 80, 119, 0.7)"
+    },
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "pos": [
+        4287.02197265625,
+        -2352.591064453125
+      ],
+      "size": [
+        315,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            7,
+            12
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "00057_00 (1).jpg",
+        "image"
+      ]
+    },
+    {
+      "id": 12,
+      "type": "LoadImage",
+      "pos": [
+        4315.83642578125,
+        -1984.38818359375
+      ],
+      "size": [
+        315,
+        314
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            13
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "00055_00.jpg",
+        "image"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "TryOffFluxFillPipelineNode",
+      "pos": [
+        4686.98046875,
+        -1304.678466796875
+      ],
+      "size": [
+        579.5999755859375,
+        98
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "transformer",
+          "type": "MODEL",
+          "link": 6
+        },
+        {
+          "name": "transformers_config",
+          "type": "transformers_config",
+          "link": 9,
+          "shape": 7
+        },
+        {
+          "name": "diffusers_config",
+          "type": "diffusers_config",
+          "link": 8,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            14
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffFluxFillPipelineNode"
+      },
+      "widgets_values": [
+        "cuda"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "TryOnRunNode",
+      "pos": [
+        5586.06103515625,
+        -1667.5330810546875
+      ],
+      "size": [
+        516.5999755859375,
+        280
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_in",
+          "type": "IMAGE",
+          "link": 12
+        },
+        {
+          "name": "garment_in",
+          "type": "IMAGE",
+          "link": 13
+        },
+        {
+          "name": "mask_in",
+          "type": "MASK",
+          "link": 11
+        },
+        {
+          "name": "pipe",
+          "type": "MODEL",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "garment_image",
+          "type": "IMAGE",
+          "links": [
+            15
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "tryon_image",
+          "type": "IMAGE",
+          "links": [
+            16
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOnRunNode"
+      },
+      "widgets_values": [
+        576,
+        768,
+        50,
+        30,
+        1627,
+        "randomize",
+        "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; [IMAGE1] Detailed product shot of clothing [IMAGE2] The same clothing is worn by a model in a lifestyle setting."
+      ]
+    },
+    {
+      "id": 10,
+      "type": "TryOffQuantizerNode",
+      "pos": [
+        3757.1728515625,
+        -1538.64404296875
+      ],
+      "size": [
+        478.8000183105469,
+        78
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "transformers_config",
+          "type": "transformers_config",
+          "links": [
+            9,
+            10
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "diffusers_config",
+          "type": "diffusers_config",
+          "links": [
+            8
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffQuantizerNode"
+      },
+      "widgets_values": [
+        "4Bit"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "TryOffModelNode",
+      "pos": [
+        4337.68603515625,
+        -1521.1094970703125
+      ],
+      "size": [
+        344.3999938964844,
+        106
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "transformers_config",
+          "type": "transformers_config",
+          "link": 10,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            6
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TryOffModelNode"
+      },
+      "widgets_values": [
+        "xiaozaa/catvton-flux-alpha",
+        "cuda"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      9,
+      0,
+      7,
+      0,
+      "MODEL"
+    ],
+    [
+      7,
+      2,
+      0,
+      1,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      10,
+      1,
+      7,
+      2,
+      "diffusers_config"
+    ],
+    [
+      9,
+      10,
+      0,
+      7,
+      1,
+      "transformers_config"
+    ],
+    [
+      10,
+      10,
+      0,
+      9,
+      0,
+      "transformers_config"
+    ],
+    [
+      11,
+      1,
+      1,
+      11,
+      2,
+      "MASK"
+    ],
+    [
+      12,
+      2,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      13,
+      12,
+      0,
+      11,
+      1,
+      "IMAGE"
+    ],
+    [
+      14,
+      7,
+      0,
+      11,
+      3,
+      "MODEL"
+    ],
+    [
+      15,
+      11,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      16,
+      11,
+      1,
+      5,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.5131581182307067,
+      "offset": [
+        -3002.9942094926746,
+        2391.03980596221
+      ]
+    },
+    "node_versions": {
+      "comfy-core": "0.3.14",
+      "comfyui_layerstyle": "84d357ad826731a931c305bf11a1101b8ac2976c",
+      "ComfyUI-Flux-TryOff": "20b420de09555b53bafd150b77206dbc91664011"
+    },
+    "ue_links": [],
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0
+  },
+  "version": 0.4
+}
