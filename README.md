@@ -25,9 +25,11 @@ This will acquire the necessary model for doing the clothing segmentation. Other
 
 All models will download automatically unless you use the legacy 'FluxFill Model Loader'. The quantized versions will work on lower end GPUs but this has not been verified for multi-gpu runs.
 
-To use, use the 8BitQuantized.json. You can remove the Quanitization step and it should still work.
+To use, use the 8BitQuantized.json. You can remove the Quanitization step and it should still work if you have sufficient GPU VRAM.
 
-![Quantized Sample](./quantized_sample_4bit.png)
+![Quantized Sample](./images/quantized_sample_4bit.png)
+
+![Try On Sample](./images/tryon.png)
 
 ## TODO
 
