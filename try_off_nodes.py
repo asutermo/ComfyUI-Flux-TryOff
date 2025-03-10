@@ -43,195 +43,7 @@ checkpoints_dir = os.path.abspath(os.path.join(models_dir, "checkpoints"))
 encoders_dir = os.path.abspath(os.path.join(models_dir, "text_encoders"))
 vae_dir = os.path.abspath(os.path.join(models_dir, "vae"))
 
-dtype = torch.bfloat16
-
-
-def load_flux_transformer(model_directory, transformer_parts="all", weight_dtype=dtype):
-    if not os.path.exists(model_directory):
-        raise ValueError(f"Model directory does not exist: {model_directory}")
-
-    if os.path.exists(os.path.join(model_directory, "transformer")):
-        transformer_dir = os.path.join(model_directory, "transformer")
-    else:
-        # Assume we're already in the transformer directory
-        transformer_dir = model_directory
-
-    print(f"Loading Flux transformer from: {transformer_dir}")
-
-    model_options = {}
-    if weight_dtype == "fp8_e4m3fn":
-        model_options["dtype"] = torch.float8_e4m3fn
-    elif weight_dtype == "fp8_e5m2":
-        model_options["dtype"] = torch.float8_e5m2
-
-    part_files = [
-        f
-        for f in os.listdir(transformer_dir)
-        if f.startswith("diffusion_pytorch_model-") and f.endswith(".safetensors")
-    ]
-
-    if not part_files:
-        raise ValueError(f"No model part files found in {transformer_dir}")
-
-    part_files.sort()
-
-    if transformer_parts == "all":
-        # Combine all parts
-        print(f"Loading and combining all parts: {part_files}")
-        state_dict = {}
-        for part_file in part_files:
-            part_path = os.path.join(transformer_dir, part_file)
-            print(f"Loading part: {part_file}")
-            part_dict = comfy.utils.load_torch_file(part_path, safe_load=True)
-            state_dict.update(part_dict)
-            del part_dict
-
-        # Load the combined state dict
-        model = comfy.sd.load_diffusion_model_state_dict(
-            state_dict, model_options=model_options
-        )
-    else:
-        part_num = int(transformer_parts.split("_")[1])
-        part_pattern = f"diffusion_pytorch_model-0000{part_num}-of-"
-        matching_files = [f for f in part_files if part_pattern in f]
-
-        if not matching_files:
-            raise ValueError(f"No file found for part {part_num}")
-
-        part_file = os.path.join(transformer_dir, matching_files[0])
-        print(f"Loading specific part file: {part_file}")
-        model = comfy.sd.load_diffusion_model(part_file, model_options=model_options)
-
-    print("Flux transformer model loaded successfully")
-    return model
-
-
-def load_flux_model_for_try_on(model_path, device="cuda", weight_dtype="default"):
-    # Set the appropriate torch dtype
-    if weight_dtype == "fp8_e4m3fn":
-        dtype = torch.float8_e4m3fn
-    elif weight_dtype == "fp8_e5m2":
-        dtype = torch.float8_e5m2
-    elif weight_dtype == "default":
-        dtype = dtype if device == "cuda" else torch.float32
-
-    # Check if model_path is a directory or a file
-    if os.path.isdir(model_path):
-        # It's a directory, use the load_flux_transformer function
-        model = load_flux_transformer(
-            model_path, transformer_parts="all", weight_dtype=weight_dtype
-        )
-    else:
-        # It's a file, load directly
-        if model_path.endswith(".safetensors"):
-            state_dict = comfy.utils.load_torch_file(model_path, safe_load=True)
-            model = comfy.sd.load_diffusion_model_state_dict(
-                state_dict, model_options={"dtype": dtype}
-            )
-        else:
-            model = comfy.sd.load_diffusion_model(
-                model_path, model_options={"dtype": dtype}
-            )
-
-    # Move to the specified device
-    model.to(device)
-    print(f"Flux model loaded on {device} with {weight_dtype} precision")
-
-    return model
-
-
-def load_and_merge_flux_model(model_directory, device="cuda", weight_dtype="default"):
-    """
-    Load and merge a Flux model split across multiple files specifically for ComfyUI integration.
-
-    Args:
-        model_directory (str): Path to the directory containing the Flux model files
-        device (str): Device to load the model on - "cuda" or "cpu"
-        weight_dtype (str): Model precision - "default", "fp8_e4m3fn", or "fp8_e5m2"
-
-    Returns:
-        The loaded and merged Flux model
-    """
-    # Verify model directory exists
-    if not os.path.exists(model_directory):
-        raise ValueError(f"Model directory does not exist: {model_directory}")
-
-    # Find the transformer directory
-    if os.path.exists(os.path.join(model_directory, "transformer")):
-        transformer_dir = os.path.join(model_directory, "transformer")
-    else:
-        transformer_dir = model_directory
-
-    # Set dtype
-    if weight_dtype == "fp8_e4m3fn":
-        dtype = torch.float8_e4m3fn
-    elif weight_dtype == "fp8_e5m2":
-        dtype = torch.float8_e5m2
-    elif weight_dtype == "default":
-        dtype = torch.float16 if device == "cuda" else torch.float32
-
-    model_options = {"dtype": dtype}
-
-    # Find all model part files
-    part_files = [
-        f
-        for f in os.listdir(transformer_dir)
-        if f.startswith("diffusion_pytorch_model-") and f.endswith(".safetensors")
-    ]
-
-    if not part_files:
-        raise ValueError(f"No model part files found in {transformer_dir}")
-
-    # Sort the files to ensure they're loaded in the correct order
-    part_files.sort()
-
-    print(f"Found {len(part_files)} model parts: {part_files}")
-
-    # Combine all parts into a single state dictionary
-    state_dict = {}
-    for part_file in part_files:
-        part_path = os.path.join(transformer_dir, part_file)
-        print(f"Loading part: {part_file}")
-        try:
-            part_dict = comfy.utils.load_torch_file(part_path, safe_load=True)
-            state_dict.update(part_dict)
-            del part_dict
-            # Clear CUDA cache to avoid OOM
-            if device == "cuda" and torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except Exception as e:
-            print(f"Error loading part {part_file}: {e}")
-            raise
-
-    # Load the combined state dictionary
-    try:
-        print("Creating model from combined state dictionary")
-        model = comfy.sd.load_diffusion_model_state_dict(
-            state_dict, model_options=model_options
-        )
-
-        # Move to device
-        model.to(device)
-        print(f"Successfully loaded and merged Flux model on {device}")
-
-        return model
-    except Exception as e:
-        print(f"Error creating model from state dictionary: {e}")
-        # Try with lower precision if OOM occurs
-        if (
-            "CUDA out of memory" in str(e)
-            and weight_dtype == "default"
-            and device == "cuda"
-        ):
-            print("Attempting to load with lower precision...")
-            torch.cuda.empty_cache()
-            model_options = {"dtype": torch.float16}  # Force fp16
-            model = comfy.sd.load_diffusion_model_state_dict(
-                state_dict, model_options=model_options
-            )
-            model.to(device)
-            return model
-        raise
+DTYPE = torch.bfloat16
 
 
 class TryOffQuantizerNode:
@@ -279,29 +91,163 @@ class TryOnOffModelNode:
                         "xiaozaa/catvton-flux-alpha",
                     ],
                 ),
-                "device": (device_list,),
+                "weight_dtype": (["default", "fp8_e4m3fn", "fp8_e5m2"],),
             },
-            "optional": {"transformers_config": ("transformers_config",)},
         }
 
     CATEGORY = "Models"
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_model"
 
-    def load_model(self, model_name, device, transformers_config=None):
-        if transformers_config:
-            model = FluxTransformer2DModel.from_pretrained(
-                model_name,
-                torch_dtype=dtype,
-                cache_dir=checkpoints_dir,
-                quantization_config=transformers_config,
-            )
-        else:
-            model = FluxTransformer2DModel.from_pretrained(
-                model_name, cache_dir=checkpoints_dir, torch_dtype=dtype
-            ).to(device)
+    def load_model(self, model_name, weight_dtype):
+        from huggingface_hub import hf_hub_download
+        from transformers.utils import WEIGHTS_NAME, CONFIG_NAME
+       
+        # Set the appropriate torch dtype
+        if weight_dtype == "fp8_e4m3fn":
+            dtype = torch.float8_e4m3fn
+        elif weight_dtype == "fp8_e5m2":
+            dtype = torch.float8_e5m2
+        elif weight_dtype == "default":
+            dtype = torch.float16  # Use float16 as default for CUDA
 
-        return (model,)
+        # First download the model from HuggingFace if it doesn't exist locally
+        local_model_path = os.path.join(checkpoints_dir, model_name.replace("/", "_"))
+        os.makedirs(local_model_path, exist_ok=True)
+        
+        # Download model files
+        print(f"Checking/downloading model: {model_name} to {local_model_path}")
+        
+        try:
+            # Try to download HF config and model files
+            config_file = hf_hub_download(repo_id=model_name, filename=CONFIG_NAME)
+            print(f"Downloaded config from {model_name}")
+            
+            # Get list of available model files 
+            from huggingface_hub import list_repo_files
+            model_files = [f for f in list_repo_files(model_name) if f.endswith('.safetensors') or f.endswith('.bin')]
+            
+            for model_file in model_files:
+                local_file = os.path.join(local_model_path, os.path.basename(model_file))
+                if not os.path.exists(local_file):
+                    print(f"Downloading {model_file}...")
+                    hf_hub_download(repo_id=model_name, filename=model_file, local_dir=local_model_path)
+            
+            print(f"Model files downloaded to {local_model_path}")
+        except Exception as e:
+            print(f"Error downloading model from HF Hub: {e}")
+            # Even if download fails, try to proceed with local files if they exist
+      
+            
+        # Try to load model
+        try:
+            # Check if the model has safetensors files
+            safetensors_files = [f for f in os.listdir(local_model_path) if f.endswith('.safetensors')]
+            
+            if safetensors_files:
+                # If multiple safetensors files, load and merge them
+                if len(safetensors_files) > 1:
+                    print(f"Found multiple safetensors files: {safetensors_files}, merging...")
+                    
+                    # Sort the files to ensure consistent ordering
+                    safetensors_files.sort()
+                    
+                    # Combine all state dicts
+                    state_dict = {}
+                    for sf in safetensors_files:
+                        sf_path = os.path.join(local_model_path, sf)
+                        print(f"Loading part: {sf}")
+                        part_dict = comfy.utils.load_torch_file(sf_path, safe_load=True)
+                        state_dict.update(part_dict)
+                        del part_dict
+                        
+                    # Load the combined state dict
+                    model = comfy.sd.load_diffusion_model_state_dict(
+                        state_dict, 
+                        model_options={"dtype": dtype}
+                    )
+                else:
+                    # Single file, load directly
+                    model_path = os.path.join(local_model_path, safetensors_files[0])
+                    print(f"Loading single safetensors file: {model_path}")
+                    model = comfy.sd.load_diffusion_model(
+                        model_path,
+                        model_options={"dtype": dtype}
+                    )
+            else:
+                # Check for .bin files (PyTorch format)
+                bin_files = [f for f in os.listdir(local_model_path) if f.endswith('.bin')]
+                
+                if bin_files:
+                    if len(bin_files) > 1:
+                        print(f"Found multiple .bin files: {bin_files}, merging...")
+                        
+                        # Sort the files
+                        bin_files.sort()
+                        
+                        # Combine all state dicts
+                        state_dict = {}
+                        for bf in bin_files:
+                            bf_path = os.path.join(local_model_path, bf)
+                            print(f"Loading part: {bf}")
+                            part_dict = torch.load(bf_path, map_location="cpu")
+                            state_dict.update(part_dict)
+                            del part_dict
+                            
+                        # Load the combined state dict
+                        model = comfy.sd.load_diffusion_model_state_dict(
+                            state_dict, 
+                            model_options={"dtype": dtype}
+                        )
+                    else:
+                        # Single file, load directly
+                        model_path = os.path.join(local_model_path, bin_files[0])
+                        print(f"Loading single .bin file: {model_path}")
+                        model = comfy.sd.load_diffusion_model(
+                            model_path,
+                            model_options={"dtype": dtype}
+                        )
+                else:
+                    # Fallback: if no model files found locally, try to use FluxTransformer2DModel 
+                    # as a last resort to get the model
+                    print("No local model files found, falling back to FluxTransformer2DModel")
+                    from diffusers import FluxTransformer2DModel
+
+                    model = FluxTransformer2DModel.from_pretrained(
+                        model_name, 
+                        cache_dir=checkpoints_dir, 
+                        torch_dtype=dtype
+                    )
+                    
+                    # Convert to ComfyUI format if needed
+                    if hasattr(model, "state_dict"):
+                        print("Converting FluxTransformer2DModel to ComfyUI format")
+                        state_dict = model.state_dict()
+                        model = comfy.sd.load_diffusion_model_state_dict(
+                            state_dict,
+                            model_options={"dtype": dtype}
+                        )
+           
+            
+            return (model,)
+            
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            # Last resort fallback - try direct loading with diffusers
+            try:
+                from diffusers import FluxTransformer2DModel
+                
+                print("Falling back to direct diffusers loading")
+                model = FluxTransformer2DModel.from_pretrained(
+                    model_name, 
+                    cache_dir=checkpoints_dir, 
+                    torch_dtype=dtype
+                )
+                    
+                return (model,)
+            except Exception as e2:
+                print(f"All loading methods failed: {e2}")
+                raise RuntimeError(f"Failed to load model {model_name}: {e}, {e2}")
 
 
 # FluxFillModel Node
@@ -328,7 +274,7 @@ class TryOffFluxFillModelNode:
             pipeline = FluxFillPipeline.from_pretrained(
                 model_path,
                 transformer=transformer,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
                 quantization_config=diffusers_config,
                 device_map="balanced",
             )
@@ -336,11 +282,11 @@ class TryOffFluxFillModelNode:
             pipeline = FluxFillPipeline.from_pretrained(
                 model_path,
                 transformer=transformer,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
             ).to(device)
 
             pipeline.enable_model_cpu_offload()
-            pipeline.transformer.to(dtype)
+            pipeline.transformer.to(DTYPE)
 
         return (pipeline,)
 
@@ -370,47 +316,47 @@ class FluxFillPipelineNode:
             tokenizer = CLIPTokenizer.from_pretrained(
                 "openai/clip-vit-large-patch14",
                 cache_dir=encoders_dir,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
                 quantization_config=transformers_config,
             )
             tokenizer_2 = T5TokenizerFast.from_pretrained(
                 "XLabs-AI/xflux_text_encoders",
                 cache_dir=encoders_dir,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
                 quantization_config=transformers_config,
             )
             text_encoder = CLIPTextModel.from_pretrained(
                 "openai/clip-vit-large-patch14",
                 cache_dir=encoders_dir,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
                 quantization_config=transformers_config,
             )
             text_encoder_2 = T5EncoderModel.from_pretrained(
                 "XLabs-AI/xflux_text_encoders",
                 cache_dir=encoders_dir,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
                 quantization_config=transformers_config,
             )
         else:
             tokenizer = CLIPTokenizer.from_pretrained(
                 "openai/clip-vit-large-patch14",
                 cache_dir=encoders_dir,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
             )
             tokenizer_2 = T5TokenizerFast.from_pretrained(
                 "XLabs-AI/xflux_text_encoders",
                 cache_dir=encoders_dir,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
             )
             text_encoder = CLIPTextModel.from_pretrained(
                 "openai/clip-vit-large-patch14",
                 cache_dir=encoders_dir,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
             )
             text_encoder_2 = T5EncoderModel.from_pretrained(
                 "XLabs-AI/xflux_text_encoders",
                 cache_dir=encoders_dir,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
             )
 
         scheduler = FlowMatchEulerDiscreteScheduler()
@@ -419,7 +365,7 @@ class FluxFillPipelineNode:
             vae = AutoencoderTiny.from_pretrained(
                 "madebyollin/taef1",
                 cache_dir=vae_dir,
-                torch_dtype=dtype,
+                torch_dtype=DTYPE,
                 quantization_config=diffusers_config,
             )
             pipeline = FluxFillPipeline(
@@ -433,7 +379,7 @@ class FluxFillPipelineNode:
             )
         else:
             vae = AutoencoderTiny.from_pretrained(
-                "madebyollin/taef1", cache_dir=vae_dir, torch_dtype=dtype
+                "madebyollin/taef1", cache_dir=vae_dir, torch_dtype=DTYPE
             )
             pipeline = FluxFillPipeline(
                 scheduler=scheduler,
