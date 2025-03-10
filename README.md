@@ -11,6 +11,8 @@ After heavy experimenting with Try-on, it's nice to have a [Try-Off, xiaozaa/cat
 
 ## Prerequisites
 
+### Segformer (Optional)
+
 <span style="color:yellow;">This is optional. You can choose to provide your own mask, however, Segformer makes it very easy which is why my examples use this</span>
 
 The examples I provide uses [ComfyUI LayerStyle](https://github.com/chflame163/ComfyUI_LayerStyle). You can install this via ComfyUI Manager.
@@ -20,6 +22,8 @@ You can follow the guide they provide to download models [here](https://github.c
 cd ./models
 git clone https://huggingface.co/mattmdjaga/segformer_b2_clothes
 ```
+
+
 
 This will acquire the necessary model for doing the clothing segmentation. Otherwise, you can create a mask region yourself.
 
