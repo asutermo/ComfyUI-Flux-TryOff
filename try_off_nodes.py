@@ -86,7 +86,7 @@ class TryOnOffImagePrepNode:
             "required": {
                 "image_in": ("IMAGE",),
                 "mask_in": ("MASK",),
-                "try_on": ("BOOLEAN",),
+                "try_on": ("BOOL",),
                 "width": ("INT", {"default": 576, "min": 128, "max": 1024, "step": 16}),
                 "height": (
                     "INT",
@@ -102,90 +102,56 @@ class TryOnOffImagePrepNode:
 
     RETURN_TYPES = ("IMAGE", "MASK")
     RETURN_NAMES = ("pixels", "mask")
-    FUNCTION = "initialize_tensors"
+    FUNCTION = "initalize_tensors"
 
-    def initialize_tensors(self, image_in, mask_in, try_on, width, height, garment_in=None):
-        # ComfyUI format: image_in is [batch, height, width, channels]
-        # mask_in is [batch, height, width]
-        batch_size = image_in.shape[0]
-        import torch.nn.functional as F
+    def initalize_tensors(self, image_in, mask_in, try_on, width, height, garment_in=None):
+        transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
+        mask_transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+            ]
+        )
 
+        # Resize and preprocess
+        def convert_image(tnsr):
+            return Image.fromarray(
+                np.clip(255.0 * tnsr.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+            ).convert("RGB")
+
+        image = convert_image(image_in).resize((width, height))
+        mask = convert_image(mask_in).resize((width, height))
+
+        if try_on:
+            garment = convert_image(garment_in).resize((width, height))
+
+        image_tensor = transform(image)
+        mask_tensor = mask_transform(mask)[:1]  # Take only first channel
+        if try_on:
+            garment_tensor = transform(garment)
+        else:
+            garment_tensor = torch.zeros_like(image_tensor)
+            image_tensor = image_tensor * mask_tensor
+
+        # Create concatenated images
+        inpaint_image = torch.cat(
+            [garment_tensor, image_tensor], dim=2
+        )  # Concatenate along width
+        garment_mask = torch.zeros_like(mask_tensor)
+
+        if try_on:
+            extended_mask = torch.cat([garment_mask, mask_tensor], dim=2)
+        else:
+            extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
         
-        # Debug info
-        print(f"Input shapes - Image: {image_in.shape}, Mask: {mask_in.shape}")
-        
-        # Check for garment when try_on is True
-        if try_on and garment_in is None:
-            raise ValueError("Garment input is required when try_on is True")
-        
-        # Create output tensors
-        output_images = []
-        output_masks = []
-        
-        for b in range(batch_size):
-            # Extract single images from batch
-            img = image_in[b].float()  # [height, width, channels]
-            mask = mask_in[b].float()  # [height, width]
-            
-            # Resize using F.interpolate (needs [batch, channels, height, width] format temporarily)
-            img_resized = F.interpolate(
-                img.permute(2, 0, 1).unsqueeze(0),  # [1, channels, height, width]
-                size=(height, width), 
-                mode='bilinear'
-            ).squeeze(0).permute(1, 2, 0)  # Back to [height, width, channels]
-            
-            mask_resized = F.interpolate(
-                mask.unsqueeze(0).unsqueeze(0),  # [1, 1, height, width]
-                size=(height, width), 
-                mode='bilinear'
-            ).squeeze(0).squeeze(0)  # Back to [height, width]
-            
-            # Process garment if provided
-            if try_on and garment_in is not None:
-                garment = garment_in[b].float()  # [height, width, channels]
-                garment_resized = F.interpolate(
-                    garment.permute(2, 0, 1).unsqueeze(0),  # [1, channels, height, width]
-                    size=(height, width), 
-                    mode='bilinear'
-                ).squeeze(0).permute(1, 2, 0)  # Back to [height, width, channels]
-            else:
-                # Create empty garment if none provided
-                garment_resized = torch.zeros((height, width, 3), dtype=torch.float32, device=img.device)
-            
-            # Apply mask to image in try_off mode
-            if not try_on:
-                # Expand mask to have same dimensions as img
-                mask_expanded = mask_resized.unsqueeze(-1).expand(-1, -1, 3)
-                img_resized = img_resized * mask_expanded
-            
-            # Create side-by-side image (garment | image)
-            combined_width = width * 2
-            combined_img = torch.zeros((height, combined_width, 3), dtype=torch.float32, device=img.device)
-            combined_img[:, :width, :] = garment_resized
-            combined_img[:, width:, :] = img_resized
-            
-            # Create appropriate mask (in ComfyUI format: [height, width])
-            combined_mask = torch.zeros((height, combined_width), dtype=torch.float32, device=mask.device)
-            
-            if try_on:
-                # For try-on, mask applies to the right side (person image)
-                combined_mask[:, width:] = mask_resized
-            else:
-                # For try-off, invert mask logic
-                combined_mask[:, :width] = 1.0 - mask_resized
-                combined_mask[:, width:] = mask_resized
-                
-            # Add to batch results
-            output_images.append(combined_img.unsqueeze(0))
-            output_masks.append(combined_mask.unsqueeze(0))
-        
-        # Combine batch results
-        final_image = torch.cat(output_images, dim=0)
-        final_mask = torch.cat(output_masks, dim=0)
-        
-        print(f"Output shapes - Image: {final_image.shape}, Mask: {final_mask.shape}")
-        
-        return (final_image, final_mask)
+        return (
+            inpaint_image,
+            extended_mask,
+        )
 
 
 class TryOnOffModelNode:
