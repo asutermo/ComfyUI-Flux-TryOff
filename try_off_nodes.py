@@ -79,6 +79,88 @@ class TryOffQuantizerNode:
             return (None, None)
 
 
+class TryOnOffImagePrepNode:
+    @classmethod
+    def INPUT_TYPES(cls):  # noqa: N802
+        return {
+            "required": {
+                "image_in": ("IMAGE",),
+                "mask_in": ("MASK",),
+                "try_on": ("BOOL",),
+                "width": ("INT", {"default": 576, "min": 128, "max": 1024, "step": 16}),
+                "height": (
+                    "INT",
+                    {"default": 768, "min": 128, "max": 1024, "step": 16},
+                ),
+            },
+            "optional": {
+                "garment_in": ("IMAGE",),
+            },
+        }
+
+    CATEGORY = "Utility"
+
+    RETURN_TYPES = ("IMAGE", "MASK")
+    RETURN_NAMES = ("pixels", "mask")
+    FUNCTION = "initalize_tensors"
+
+    def initalize_tensors(self, image_in, mask_in, try_on, width, height, garment_in=None):
+        transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
+        mask_transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+            ]
+        )
+
+        # Resize and preprocess
+        def convert_image(tnsr):
+            return Image.fromarray(
+                np.clip(255.0 * tnsr.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+            ).convert("RGB")
+
+        image = convert_image(image_in).resize((width, height))
+        mask = convert_image(mask_in).resize((width, height))
+
+        if try_on:
+            garment = convert_image(garment_in).resize((width, height))
+
+        image_tensor = transform(image)
+        mask_tensor = mask_transform(mask)[:1]  # Take only first channel
+        if try_on:
+            garment_tensor = transform(garment)
+        else:
+            garment_tensor = torch.zeros_like(image_tensor)
+            image_tensor = image_tensor * mask_tensor
+
+        # Create concatenated images
+        inpaint_image = torch.cat(
+            [garment_tensor, image_tensor], dim=2
+        )  # Concatenate along width
+        garment_mask = torch.zeros_like(mask_tensor)
+
+        if try_on:
+            extended_mask = torch.cat([garment_mask, mask_tensor], dim=2)
+        else:
+            extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
+    
+        # convert back to pixels
+        
+        def tensor2pil(t_image: torch.Tensor) -> Image:
+            return Image.fromarray(
+                np.clip(255.0 * t_image.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+            )
+        
+        return (
+            tensor2pil(inpaint_image),
+            tensor2pil(extended_mask),
+        )
+
+
 class TryOnOffModelNode:
     @classmethod
     def INPUT_TYPES(cls):  # noqa: N802
@@ -694,261 +776,3 @@ class TryOnOffRunNode:
                 height,
             )
 
-
-def comfy_tryon_off_inference(
-    model,  # The loaded Flux model
-    clip,  # ComfyUI CLIP text encoder
-    vae,  # ComfyUI VAE
-    image_in,  # Input model image tensor
-    mask_in,  # Input mask tensor
-    try_on=True,  # Whether to do try-on (True) or try-off (False)
-    garment_in=None,  # Garment image tensor (only needed for try-on)
-    prompt="",  # Prompt for generation
-    negative_prompt="",  # Negative prompt
-    steps=50,  # Number of sampling steps
-    cfg_scale=7.5,  # Guidance scale
-    scheduler="euler",  # Sampling scheduler
-    seed=42,  # Generation seed
-    width=576,  # Image width
-    height=768,  # Image height
-    denoise_strength=1.0,  # Denoising strength (1.0 = full denoise)
-):
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),
-        ]
-    )
-
-    mask_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-        ]
-    )
-
-    def convert_image(tnsr):
-        return Image.fromarray(
-            np.clip(255.0 * tnsr.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
-        ).convert("RGB")
-
-    image = convert_image(image_in).resize((width, height))
-    mask = convert_image(mask_in).resize((width, height))
-
-    image_tensor = transform(image)
-    mask_tensor = mask_transform(mask)[:1]  # Take only first channel
-
-    if try_on and garment_in is not None:
-        garment = convert_image(garment_in).resize((width, height))
-        garment_tensor = transform(garment)
-    else:
-        garment_tensor = torch.zeros_like(image_tensor)
-        if not try_on:
-            image_tensor = image_tensor * mask_tensor
-
-    inpaint_image = torch.cat([garment_tensor, image_tensor], dim=2)
-
-    # Create appropriate mask
-    garment_mask = torch.zeros_like(mask_tensor)
-    if try_on:
-        extended_mask = torch.cat([garment_mask, mask_tensor], dim=2)
-    else:
-        extended_mask = torch.cat([1 - garment_mask, garment_mask], dim=2)
-
-    # Convert to ComfyUI format
-    inpaint_image = inpaint_image.unsqueeze(0)  # Add batch dimension
-    extended_mask = extended_mask.unsqueeze(0)
-
-    # Generate random noise from seed
-    torch.manual_seed(seed)
-    noise = torch.randn(
-        (1, model.unet.config.in_channels, height // 8, width * 2 // 8),
-        device=model.device,
-        dtype=model.dtype,
-    )
-
-    # Convert images to latent space using VAE
-    samples = vae.encode(inpaint_image)
-
-    # Process conditioning using CLIP
-    positive_cond = clip.encode(prompt)
-    negative_cond = clip.encode(negative_prompt) if negative_prompt else None
-
-    # Set up model patches (similar to ComfyUI's approach)
-    model_options = {
-        "transformer_options": {},
-    }
-
-    if not isinstance(model, comfy.model_patcher.ModelPatcher):
-        model = comfy.model_patcher.ModelPatcher(model)
-
-    # Create sampler
-    scheduler_map = {
-        "euler": "euler",
-        "euler_ancestral": "euler_ancestral",
-        "dpm_2": "dpm_2",
-        "dpm_2_ancestral": "dpm_2_ancestral",
-        "dpmpp_2s_ancestral": "dpmpp_2s_ancestral",
-        "dpmpp_sde": "dpmpp_sde",
-        "dpmpp_2m": "dpmpp_2m",
-        "ddim": "ddim",
-    }
-    sampler_name = scheduler_map.get(scheduler, "euler_ancestral")
-
-    sampler = comfy.samplers.KSampler(
-        model,
-        steps=steps,
-        device=model.device,
-        sampler=sampler_name,
-        scheduler="karras",
-        denoise=denoise_strength,
-        model_options=model_options,
-    )
-
-    # Prepare inpainting conditioning
-    latent_image = samples
-    latent_mask = vae.encode_mask(extended_mask)
-
-    # Sample
-    samples = sampler.sample(
-        noise,
-        positive_cond,
-        negative_cond,
-        latent_image=latent_image,
-        latent_mask=latent_mask,
-        cfg_scale=cfg_scale,
-    )
-
-    # Decode the latents to images
-    result = vae.decode(samples)
-
-    result_image = transforms.ToPILImage()(result[0].cpu())
-
-    # Split result into garment and try-on/off images
-    garment_result = result_image.crop((0, 0, width, height))
-    try_result = result_image.crop((width, 0, width * 2, height))
-
-    # Convert back to tensors
-    try_result_tensor = torch.tensor(
-        np.array(try_result) / 255.0, dtype=torch.float32
-    ).unsqueeze(0)
-
-    garment_result_tensor = torch.tensor(
-        np.array(garment_result) / 255.0, dtype=torch.float32
-    ).unsqueeze(0)
-
-    return (
-        try_result_tensor,
-        garment_result_tensor,
-    )
-
-
-class ComfyTryOnOffNode:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "model": ("MODEL",),
-                "clip": ("CLIP",),
-                "vae": ("VAE",),
-                "image_in": ("IMAGE",),
-                "mask_in": ("MASK",),
-                "width": ("INT", {"default": 576, "min": 128, "max": 1024, "step": 16}),
-                "height": (
-                    "INT",
-                    {"default": 768, "min": 128, "max": 1024, "step": 16},
-                ),
-                "steps": ("INT", {"default": 50, "min": 1, "max": 100}),
-                "cfg_scale": (
-                    "FLOAT",
-                    {"default": 7.5, "min": 1.0, "max": 100.0, "step": 0.1},
-                ),
-                "scheduler": (
-                    [
-                        "euler",
-                        "euler_ancestral",
-                        "dpm_2",
-                        "dpm_2_ancestral",
-                        "dpmpp_2s_ancestral",
-                        "dpmpp_sde",
-                        "dpmpp_2m",
-                        "ddim",
-                    ],
-                ),
-                "seed": ("INT", {"default": 42}),
-                "prompt": (
-                    "STRING",
-                    {
-                        "multiline": True,
-                        "default": "The pair of images highlights clothing and its styling on a model, high resolution, 4K, 8K; "
-                        "[IMAGE1] Detailed product shot of clothing "
-                        "[IMAGE2] The same clothing is worn by a model in a lifestyle setting.",
-                    },
-                ),
-                "negative_prompt": (
-                    "STRING",
-                    {
-                        "multiline": True,
-                        "default": "low quality, bad anatomy, worst quality, low res",
-                    },
-                ),
-                "try_on": (["true", "false"],),
-                "denoise_strength": (
-                    "FLOAT",
-                    {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01},
-                ),
-            },
-            "optional": {
-                "garment_in": ("IMAGE",),
-            },
-        }
-
-    RETURN_TYPES = ("IMAGE", "IMAGE")
-    RETURN_NAMES = ("result_image", "garment_image")
-    FUNCTION = "run_inference"
-    CATEGORY = "Try-On/Off"
-
-    def run_inference(
-        self,
-        model,
-        clip,
-        vae,
-        image_in,
-        mask_in,
-        width,
-        height,
-        steps,
-        cfg_scale,
-        scheduler,
-        seed,
-        prompt,
-        negative_prompt,
-        try_on,
-        denoise_strength,
-        garment_in=None,
-    ):
-        try_on_mode = try_on == "true"
-
-        if try_on_mode and garment_in is None:
-            print(
-                "Warning: Try-on mode selected but no garment provided. Defaulting to try-off mode."
-            )
-            try_on_mode = False
-
-        return comfy_tryon_off_inference(
-            model=model,
-            clip=clip,
-            vae=vae,
-            image_in=image_in,
-            mask_in=mask_in,
-            try_on=try_on_mode,
-            garment_in=garment_in,
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            steps=steps,
-            cfg_scale=cfg_scale,
-            scheduler=scheduler,
-            seed=seed,
-            width=width,
-            height=height,
-            denoise_strength=denoise_strength,
-        )

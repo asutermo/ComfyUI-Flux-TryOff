@@ -1,5 +1,4 @@
 from .try_off_nodes import (  # noqa
-    ComfyTryOnOffNode,
     FluxFillPipelineNode,
     TryOffFluxFillModelNode,
     TryOffQuantizerNode,
@@ -7,6 +6,7 @@ from .try_off_nodes import (  # noqa
     TryOnOffModelNode,
     TryOnOffRunNode,
     TryOnRunNode,
+    TryOnOffImagePrepNode
 )
 
 # Node Registrations
@@ -19,7 +19,7 @@ NODE_CLASS_MAPPINGS = {
     "TryOffFluxFillPipelineNode": FluxFillPipelineNode,
     "TryOnRunNode": TryOnRunNode,
     "TryOnOffRunNode": TryOnOffRunNode,
-    "ComfyTryOnOffNode": ComfyTryOnOffNode,
+    "TryOnOffImagePrepNode": TryOnOffImagePrepNode,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -31,5 +31,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "TryOffFluxFillPipelineNode": "FluxFill Pipeline Loader [ComfyUI-Flux-TryOff]",
     "TryOnRunNode": "Run TryOn Inference [ComfyUI-Flux-TryOff]",
     "TryOnOffRunNode": "Run TryOn or TryOff Inference [ComfyUI-Flux-TryOff]",
-    "ComfyTryOnOffNode": "Run TryOn or TryOff using standard ComfyUI Loaders",
+    "TryOnOffImagePrepNode": "TryOn or TryOff Image Preparation [ComfyUI-Flux-TryOff]",
 }
