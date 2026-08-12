@@ -115,10 +115,21 @@ class TryOnOffModelNode:
 class TryOffFluxFillModelNode:
     @classmethod
     def INPUT_TYPES(cls):  # noqa: N802
+        model_list = ["FLUX.1-dev"]
+        try:
+            if os.path.isdir(checkpoints_dir):
+                for item in os.listdir(checkpoints_dir):
+                    full_path = os.path.join(checkpoints_dir, item)
+                    if os.path.isdir(full_path) or item.endswith(".safetensors"):
+                        if item not in model_list:
+                            model_list.append(item)
+        except Exception:
+            pass
+
         return {
             "required": {
                 "transformer": ("MODEL",),
-                "model_name": (["FLUX.1-dev"],),
+                "model_name": (model_list,),
                 "device": (device_list,),
             },
             "optional": {"diffusers_config": ("diffusers_config",)},
@@ -129,7 +140,10 @@ class TryOffFluxFillModelNode:
     FUNCTION = "load_pipeline"
 
     def load_pipeline(self, transformer, model_name, device, diffusers_config=None):
-        model_path = os.path.join(checkpoints_dir, model_name)
+        if os.path.isabs(model_name):
+            model_path = model_name
+        else:
+            model_path = os.path.join(checkpoints_dir, model_name)
 
         if diffusers_config:
             pipeline = FluxFillPipeline.from_pretrained(
